@@ -17,7 +17,7 @@ export default function WelcomeScreen() {
 
   const handleStart = () => {
     // Navigasi ke halaman dashboard
-    router.replace('/pages/dashboard');
+    router.replace('../pages/autentikasi/login');
   };
 
   return (

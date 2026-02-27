@@ -113,28 +113,24 @@ export default function PengaturanAplikasi() {
               title="Kebijakan Privasi" 
               onPress={() => {}} 
             />
-            <SettingItem 
-              icon="⭐" 
-              title="Beri Nilai Aplikasi" 
-              onPress={() => {}} 
-            />
           </View>
 
-          <View style={styles.sectionGroup}>
-            <SettingItem 
-              icon="🚪" 
-              title="Login Admin" 
-              isDestructive={true}
-              onPress={() => alert('Logout Berhasil')} 
-            />
-          </View>
-
+          {/* Keluar Akun Section */}
           <View style={styles.sectionGroup}>
             <SettingItem 
               icon="🚪" 
               title="Keluar Akun" 
               isDestructive={true}
-              onPress={() => alert('Logout Berhasil')} 
+              onPress={() => router.push('/pages/autentikasi/login')} 
+            />
+          </View>
+
+          <View style={styles.sectionGroup}>
+            <SettingItem 
+              icon="🚪" 
+              title="Tombol sementara ke halaman admin" 
+              isDestructive={true}
+              onPress={() => router.push('/pages/admin/admin_home')} 
             />
           </View>
 
