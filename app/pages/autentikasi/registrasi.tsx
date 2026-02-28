@@ -8,10 +8,12 @@ import {
   SafeAreaView, 
   KeyboardAvoidingView, 
   Platform,
+  ActivityIndicator,
   ScrollView
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import api from '../../services/api';
 
 export default function Register() {
   const router = useRouter();
@@ -20,8 +22,10 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
+    // Validasi Frontend
     if (!fullName || !email || !password || !confirmPassword) {
       alert("Harap isi semua kolom!");
       return;
@@ -30,10 +34,36 @@ export default function Register() {
       alert("Password dan Konfirmasi Password tidak cocok!");
       return;
     }
-    
-    // Logika pendaftaran di sini
-    alert("Akun berhasil dibuat!");
-    router.replace('/pages/autentikasi/login');
+
+    setLoading(true); // Mulai loading
+
+    try {
+      // 2. Kirim data ke Laravel
+      const response = await api.post('/register', {
+        name: fullName,
+        email: email,
+        password: password,
+      });
+
+      // Jika berhasil (status 201)
+      alert("Akun berhasil dibuat! Silakan login.");
+      router.replace('/pages/autentikasi/login');
+      
+    } catch (error: any) {
+      // 3. Tangani Error dari Laravel
+      console.error("Error Detail:", error.response?.data);
+      
+      if (error.response?.status === 422) {
+        // Biasanya karena email sudah terdaftar
+        const errors = error.response.data;
+        const firstError = Object.values(errors)[0];
+        alert("Gagal Daftar: " + firstError);
+      } else {
+        alert("Terjadi kesalahan jaringan atau server.");
+      }
+    } finally {
+      setLoading(false); // Matikan loading
+    }
   };
 
   return (
@@ -111,8 +141,16 @@ export default function Register() {
               />
             </View>
 
-            <TouchableOpacity style={styles.btnRegister} onPress={handleRegister}>
-              <Text style={styles.btnRegisterText}>Daftar</Text>
+            <TouchableOpacity 
+              style={[styles.btnRegister, loading && { opacity: 0.7 }]} 
+              onPress={handleRegister}
+              disabled={loading} // Nonaktifkan tombol saat sedang loading
+            >
+              {loading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.btnRegisterText}>Daftar</Text>
+              )}
             </TouchableOpacity>
           </View>
 

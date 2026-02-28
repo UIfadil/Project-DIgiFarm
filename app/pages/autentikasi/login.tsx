@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import api from '../../services/api';
 
 export default function Login() {
   const router = useRouter();
@@ -19,14 +20,29 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleLogin = () => {
-    //logika autentikasi di sini
-    if (email && password) {
-      router.replace('/pages/dashboard'); // sistem login berhasil ke dashboard
+  const handleLogin = async () => {
+  try {
+    const response = await api.post('/login', {
+      email: email,
+      password: password,
+    });
+
+    // Ambil data dari respon Laravel
+    const { role, access_token } = response.data;
+
+    if (role === 'admin') {
+      alert("Selamat Datang Admin!");
+      router.replace('/pages/admin/admin_home'); 
     } else {
-      alert("Silakan masukkan email dan password");
+      alert("Login Berhasil!");
+      router.replace('/pages/dashboard'); // Ganti ke dashboard user Anda
     }
-  };
+
+  } catch (error: any) {
+    console.log("Error Login:", error.response?.data);
+    alert(error.response?.data?.message || "Gagal Login, periksa akun Anda");
+  }
+};
 
   return (
     <SafeAreaView style={styles.container}>
