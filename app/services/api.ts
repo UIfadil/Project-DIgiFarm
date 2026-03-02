@@ -1,27 +1,41 @@
-// app/services/api.ts
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const api = axios.create({
-  baseURL: process.env.EXPO_PUBLIC_API_URL, 
-  timeout: 10000,
+  baseURL: process.env.EXPO_PUBLIC_API_URL,
+  timeout: 15000,
   headers: {
     'Accept': 'application/json',
     'Content-Type': 'application/json',
   }
 });
 
-// Tambahkan Interceptor untuk menempelkan Token secara otomatis
 api.interceptors.request.use(
   async (config) => {
-    // Ambil token yang disimpan saat login nanti
     const token = await AsyncStorage.getItem('userToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+      config.transformRequest = [(data) => data]; // ✅ KUNCI: cegah Axios ubah FormData
+    }
+
     return config;
   },
+  (error) => Promise.reject(error)
+);
+
+api.interceptors.response.use(
+  (response) => response,
   (error) => {
+    if (__DEV__) {
+      console.log('=== API ERROR ===');
+      console.log('URL   :', error.config?.url);
+      console.log('Status:', error.response?.status);
+      console.log('Data  :', JSON.stringify(error.response?.data));
+    }
     return Promise.reject(error);
   }
 );

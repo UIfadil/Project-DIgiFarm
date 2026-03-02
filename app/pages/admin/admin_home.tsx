@@ -102,9 +102,6 @@ export default function AdminHome() {
 
         {/* Menu Manajemen */}
         <Text style={styles.sectionTitle}>Manajemen Sistem</Text>
-        
-        {/* Menu Manajemen */}
-        <Text style={styles.sectionTitle}>Manajemen Sistem</Text>
 
         <View style={styles.menuContainer}>
           <MenuButton 
@@ -118,7 +115,7 @@ export default function AdminHome() {
             title="Database Hama/Penyakit" 
             icon="flask" 
             color="#4B5563" 
-            onPress={() => alert('Fitur Database Hama sedang disiapkan')}
+            onPress={() => router.push('/pages/admin/manage_sistem/manage_hama_penyakit')}
           />
           
           <MenuButton 
