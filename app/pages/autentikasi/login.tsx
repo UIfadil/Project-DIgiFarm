@@ -1,17 +1,19 @@
-import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TextInput, 
-  TouchableOpacity, 
-  SafeAreaView, 
-  KeyboardAvoidingView, 
-  Platform,
-  ScrollView
-} from 'react-native';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  Alert // <--- Pastikan Alert ada di sini
+} from 'react-native';
 import api from '../../services/api';
 
 export default function Login() {
@@ -21,28 +23,39 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
-  try {
-    const response = await api.post('/login', {
-      email: email,
-      password: password,
-    });
-
-    // Ambil data dari respon Laravel
-    const { role, access_token } = response.data;
-
-    if (role === 'admin') {
-      alert("Selamat Datang Admin!");
-      router.replace('/pages/admin/admin_home'); 
-    } else {
-      alert("Login Berhasil!");
-      router.replace('/pages/dashboard'); // Ganti ke dashboard user Anda
+    if (!email || !password) {
+      Alert.alert("Error", "Email dan Password wajib diisi!");
+      return;
     }
 
-  } catch (error: any) {
-    console.log("Error Login:", error.response?.data);
-    alert(error.response?.data?.message || "Gagal Login, periksa akun Anda");
-  }
-};
+    try {
+      const response = await api.post('/login', {
+        email: email,
+        password: password,
+      });
+
+      // Ambil data dari respon Laravel
+      const { role, access_token } = response.data;
+
+      // SIMPAN TOKEN KE MEMORI HP
+      await AsyncStorage.setItem('userToken', access_token);
+
+      if (role === 'admin') {
+        Alert.alert("Sukses", "Selamat Datang Admin!");
+        router.replace('/pages/admin/admin_home'); 
+      } else {
+        Alert.alert("Sukses", "Login Berhasil!");
+        router.replace('/pages/dashboard'); 
+      }
+
+    } catch (error: any) {
+      console.log("Error Login:", error.response?.data);
+      const pesanError = error.response?.data?.message || "Gagal Login, periksa jaringan atau akun Anda";
+      Alert.alert("Login Gagal", pesanError);
+    }
+  }; // <--- Kurung kurawal fungsi handleLogin
+
+  // Kurung kurawal berlebih yang tadi ada di sini sudah dihapus
 
   return (
     <SafeAreaView style={styles.container}>
@@ -117,109 +130,22 @@ export default function Login() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'white',
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 30,
-    paddingTop: 60,
-    paddingBottom: 30,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#16A34A',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-    elevation: 4,
-    shadowColor: '#16A34A',
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-  },
-  welcomeText: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 10,
-  },
-  subText: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  formContainer: {
-    width: '100%',
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#374151',
-    marginBottom: 8,
-    marginTop: 15,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 15,
-    paddingHorizontal: 15,
-    height: 55,
-  },
-  inputIcon: {
-    marginRight: 10,
-  },
-  input: {
-    flex: 1,
-    fontSize: 14,
-    color: '#1F2937',
-  },
-  forgotPass: {
-    alignSelf: 'flex-end',
-    marginTop: 10,
-  },
-  forgotPassText: {
-    color: '#16A34A',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  btnLogin: {
-    backgroundColor: '#16A34A',
-    height: 55,
-    borderRadius: 15,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 30,
-    elevation: 4,
-  },
-  btnLoginText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 'auto',
-    paddingTop: 30,
-  },
-  footerText: {
-    color: '#6B7280',
-    fontSize: 14,
-  },
-  registerText: {
-    color: '#16A34A',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
+  container: { flex: 1, backgroundColor: 'white' },
+  scrollContent: { flexGrow: 1, paddingHorizontal: 30, paddingTop: 60, paddingBottom: 30 },
+  header: { alignItems: 'center', marginBottom: 40 },
+  logoCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#16A34A', justifyContent: 'center', alignItems: 'center', elevation: 4 },
+  welcomeText: { fontSize: 28, fontWeight: 'bold', color: '#1F2937', marginBottom: 10 },
+  subText: { fontSize: 14, color: '#6B7280', textAlign: 'center' },
+  formContainer: { width: '100%' },
+  label: { fontSize: 14, fontWeight: 'bold', color: '#374151', marginBottom: 8, marginTop: 15 },
+  inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 15, paddingHorizontal: 15, height: 55 },
+  inputIcon: { marginRight: 10 },
+  input: { flex: 1, fontSize: 14, color: '#1F2937' },
+  forgotPass: { alignSelf: 'flex-end', marginTop: 10 },
+  forgotPassText: { color: '#16A34A', fontSize: 12, fontWeight: '600' },
+  btnLogin: { backgroundColor: '#16A34A', height: 55, borderRadius: 15, justifyContent: 'center', alignItems: 'center', marginTop: 30, elevation: 4 },
+  btnLoginText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+  footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 'auto', paddingTop: 30 },
+  footerText: { color: '#6B7280', fontSize: 14 },
+  registerText: { color: '#16A34A', fontSize: 14, fontWeight: 'bold' },
 });

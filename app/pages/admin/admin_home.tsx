@@ -5,13 +5,35 @@ import {
   StyleSheet, 
   ScrollView, 
   TouchableOpacity,
-  SafeAreaView 
+  SafeAreaView,
+  ActivityIndicator 
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import api from '../../services/api';
 
 export default function AdminHome() {
     const router = useRouter();
+    const [totalUser, setTotalUser] = useState('0');
+    const [loading, setLoading] = useState(true)
+
+    const fetchDashboardStats = async () => {
+        try {
+            const response = await api.get('/admin/users');
+            // Karena /admin/users mengembalikan array user, kita ambil panjang array-nya
+            const count = response.data.length;
+            setTotalUser(count.toString());
+        } catch (error) {
+            console.error("Gagal mengambil statistik:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchDashboardStats();
+    }, []);
+
     const handleLogout = () => {
         // Di sini Anda bisa menghapus session/token jika ada
         router.replace('/pages/autentikasi/login');
@@ -43,10 +65,10 @@ export default function AdminHome() {
 
   // Data Mockup Statistik
   const stats = [
-    { label: 'Total User', value: '1,250', icon: 'people', color: '#3B82F6' },
-    { label: 'Total Penyakit', value: '84', icon: 'medkit-outline', color: '#10B981' },
-    { label: 'Total Hama', value: '12', icon: 'bug', color: '#EF4444' },
-    { label: 'Total Edukasi', value: '45', icon: 'book', color: '#F59E0B' },
+        { label: 'Total User', value: totalUser, icon: 'people', color: '#3B82F6' },
+        { label: 'Total Penyakit', value: '84', icon: 'medkit-outline', color: '#10B981' },
+        { label: 'Total Hama', value: '12', icon: 'bug', color: '#EF4444' },
+        { label: 'Total Edukasi', value: '45', icon: 'book', color: '#F59E0B' },
   ];
 
   return (
@@ -63,24 +85,55 @@ export default function AdminHome() {
         {/* Statistik Grid */}
         <View style={styles.statsGrid}>
           {stats.map((item, index) => (
-            <View key={index} style={styles.statCard}>
-              <View style={[styles.iconCircle, { backgroundColor: item.color + '20' }]}>
-                <Ionicons name={item.icon as any} size={24} color={item.color} />
+                <View key={index} style={styles.statCard}>
+                <View style={[styles.iconCircle, { backgroundColor: item.color + '20' }]}>
+                  <Ionicons name={item.icon as any} size={24} color={item.color} />
+                </View>
+                {/* Tampilkan Loading kecil jika data belum ada */}
+                {loading && item.label === 'Total User' ? (
+                  <ActivityIndicator size="small" color={item.color} />
+                ) : (
+                  <Text style={styles.statValue}>{item.value}</Text>
+                )}
+                <Text style={styles.statLabel}>{item.label}</Text>
               </View>
-              <Text style={styles.statValue}>{item.value}</Text>
-              <Text style={styles.statLabel}>{item.label}</Text>
-            </View>
-          ))}
-        </View>
+            ))}
+          </View>
 
         {/* Menu Manajemen */}
         <Text style={styles.sectionTitle}>Manajemen Sistem</Text>
         
+        {/* Menu Manajemen */}
+        <Text style={styles.sectionTitle}>Manajemen Sistem</Text>
+
         <View style={styles.menuContainer}>
-          <MenuButton title="Kelola Pengguna" icon="people-circle" color="#4B5563" />
-          <MenuButton title="Database Hama/Penyakit" icon="flask" color="#4B5563" />
-          <MenuButton title="Database Edukasi" icon="book" color="#4B5563" />
-          <MenuButton title="Database Kuis" icon="reader-outline" color="#4B5563" />
+          <MenuButton 
+            title="Kelola Pengguna" 
+            icon="people-circle" 
+            color="#4B5563" 
+            onPress={() => router.push('/pages/admin/manage_sistem/manage_user')} // Jalur Route Anda
+          />
+          
+          <MenuButton 
+            title="Database Hama/Penyakit" 
+            icon="flask" 
+            color="#4B5563" 
+            onPress={() => alert('Fitur Database Hama sedang disiapkan')}
+          />
+          
+          <MenuButton 
+            title="Database Edukasi" 
+            icon="book" 
+            color="#4B5563" 
+            onPress={() => alert('Fitur Database Edukasi sedang disiapkan')}
+          />
+          
+          <MenuButton 
+            title="Database Kuis" 
+            icon="reader-outline" 
+            color="#4B5563" 
+            onPress={() => alert('Fitur Database Kuis sedang disiapkan')}
+          />
         </View>
 
         {/* Tambahkan Tombol Logout di bawah sini */}
@@ -115,8 +168,8 @@ export default function AdminHome() {
 }
 
 // Komponen Kecil untuk Tombol Menu
-const MenuButton = ({ title, icon, color }: { title: string, icon: string, color: string }) => (
-  <TouchableOpacity style={styles.menuButton}>
+const MenuButton = ({ title, icon, color, onPress }: { title: string, icon: string, color: string, onPress?: () => void }) => (
+  <TouchableOpacity style={styles.menuButton} onPress={onPress} activeOpacity={0.7}>
     <View style={styles.menuInner}>
       <Ionicons name={icon as any} size={24} color={color} />
       <Text style={styles.menuText}>{title}</Text>
