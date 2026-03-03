@@ -115,7 +115,7 @@ export default function AdminHome() {
             title="Database Hama/Penyakit" 
             icon="flask" 
             color="#4B5563" 
-            onPress={() => router.push('/pages/admin/manage_sistem/manage_hama_penyakit')}
+            onPress={() => router.push('/pages/admin/manage_sistem/manage_edukasi')}
           />
           
           <MenuButton 
