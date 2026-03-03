@@ -112,17 +112,10 @@ export default function AdminHome() {
           />
           
           <MenuButton 
-            title="Database Hama/Penyakit" 
+            title="Database Edukasi dan Vidio Edukasi" 
             icon="flask" 
             color="#4B5563" 
             onPress={() => router.push('/pages/admin/manage_sistem/manage_edukasi')}
-          />
-          
-          <MenuButton 
-            title="Database Edukasi" 
-            icon="book" 
-            color="#4B5563" 
-            onPress={() => alert('Fitur Database Edukasi sedang disiapkan')}
           />
           
           <MenuButton 

@@ -432,7 +432,7 @@ export default function ManageEdukasi() {
                 </TouchableOpacity>
                 <View style={{ flex: 1, marginLeft: 12 }}>
                     <Text style={styles.headerTitle}>Database Edukasi</Text>
-                    <Text style={styles.headerSub}>Manajemen data hama & penyakit tanaman</Text>
+                    <Text style={styles.headerSub}>Manajemen data edukasi hama, penyakit, pertanian dasar padi</Text>
                 </View>
                 <TouchableOpacity onPress={openAddEdukasi} style={styles.addBtn}>
                     <Ionicons name="add" size={18} color="white" />
