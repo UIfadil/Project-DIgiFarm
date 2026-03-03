@@ -22,7 +22,8 @@ interface VideoEdukasi {
 interface Edukasi {
     id: number;
     nama: string;
-    kategori: 'hama' | 'penyakit';
+    // ✅ Tambah pertanian_dasar
+    kategori: 'hama' | 'penyakit' | 'pertanian_dasar';
     deskripsi: string;
     gambar: string;
     solusi: string | null;
@@ -30,6 +31,20 @@ interface Edukasi {
 }
 
 type ModalType = 'edukasi' | 'video' | null;
+
+// ✅ Helper: ambil warna badge berdasarkan kategori
+const getBadgeStyle = (kategori: string) => {
+    switch (kategori) {
+        case 'hama':
+            return { bg: '#FEE2E2', dot: '#EF4444', text: '#991B1B', label: 'Hama' };
+        case 'penyakit':
+            return { bg: '#DCFCE7', dot: '#16A34A', text: '#166534', label: 'Penyakit' };
+        case 'pertanian_dasar':
+            return { bg: '#FEF9C3', dot: '#CA8A04', text: '#854D0E', label: 'Pertanian' };
+        default:
+            return { bg: '#F3F4F6', dot: '#9CA3AF', text: '#374151', label: kategori };
+    }
+};
 
 export default function ManageEdukasi() {
     const router = useRouter();
@@ -47,7 +62,8 @@ export default function ManageEdukasi() {
     // Form Edukasi
     const [editingId, setEditingId] = useState<number | null>(null);
     const [name, setName] = useState('');
-    const [category, setCategory] = useState<'hama' | 'penyakit'>('penyakit');
+    // ✅ Update type
+    const [category, setCategory] = useState<'hama' | 'penyakit' | 'pertanian_dasar'>('penyakit');
     const [description, setDescription] = useState('');
     const [solusi, setSolusi] = useState('');
     const [image, setImage] = useState<string | null>(null);
@@ -91,11 +107,14 @@ export default function ManageEdukasi() {
 
     const hamaCount = list.filter(d => d.kategori === 'hama').length;
     const penyakitCount = list.filter(d => d.kategori === 'penyakit').length;
+    // ✅ Tambah counter pertanian_dasar
+    const pertanianCount = list.filter(d => d.kategori === 'pertanian_dasar').length;
 
     // ─── EDUKASI MODAL ───
     const openAddEdukasi = () => {
         setEditingId(null);
         setName(''); setCategory('penyakit'); setDescription('');
+        setSolusi('');
         setImage(null); setExistingImage(null);
         setModalType('edukasi'); setModalVisible(true);
     };
@@ -103,6 +122,7 @@ export default function ManageEdukasi() {
     const openEditEdukasi = (item: Edukasi) => {
         setEditingId(item.id);
         setName(item.nama); setCategory(item.kategori); setDescription(item.deskripsi);
+        setSolusi(item.solusi ?? '');
         setImage(null); setExistingImage(item.gambar);
         setModalType('edukasi'); setModalVisible(true);
     };
@@ -202,9 +222,7 @@ export default function ManageEdukasi() {
     };
 
     const pickVideoFile = async () => {
-        const result = await DocumentPicker.getDocumentAsync({
-            type: 'video/*',
-        });
+        const result = await DocumentPicker.getDocumentAsync({ type: 'video/*' });
         if (!result.canceled && result.assets[0]) {
             setVideoFile({ uri: result.assets[0].uri, name: result.assets[0].name });
         }
@@ -225,7 +243,6 @@ export default function ManageEdukasi() {
             setLoading(true);
             const token = await AsyncStorage.getItem('userToken');
             const baseURL = process.env.EXPO_PUBLIC_API_URL;
-
             const url = editingVideoId
                 ? `${baseURL}/admin/video-edukasi/${editingVideoId}/update`
                 : `${baseURL}/admin/edukasi/${parentEdukasiId}/video`;
@@ -234,15 +251,10 @@ export default function ManageEdukasi() {
             formData.append('judul_video', judulVideo);
             formData.append('tipe_video', tipeVideo);
             if (keteranganVideo.trim()) formData.append('keterangan_video', keteranganVideo);
-
             if (tipeVideo === 'link') {
                 formData.append('video', videoLink);
             } else if (videoFile) {
-                formData.append('video', {
-                    uri: videoFile.uri,
-                    name: videoFile.name,
-                    type: 'video/mp4',
-                } as any);
+                formData.append('video', { uri: videoFile.uri, name: videoFile.name, type: 'video/mp4' } as any);
             }
 
             const response = await fetch(url, {
@@ -281,7 +293,6 @@ export default function ManageEdukasi() {
         ]);
     };
 
-    // ─── HELPERS ───
     const getImageUri = (gambar: string) =>
         `${process.env.EXPO_PUBLIC_API_URL?.replace('/api', '')}/storage/${gambar}`;
 
@@ -298,7 +309,11 @@ export default function ManageEdukasi() {
             <View style={styles.vColInfo}>
                 <Text style={styles.vCellJudul} numberOfLines={1}>{v.judul_video}</Text>
                 <View style={styles.vTipeBadge}>
-                    <Ionicons name={v.tipe_video === 'link' ? 'link-outline' : 'cloud-upload-outline'} size={10} color={v.tipe_video === 'link' ? '#1D4ED8' : '#059669'} />
+                    <Ionicons
+                        name={v.tipe_video === 'link' ? 'link-outline' : 'cloud-upload-outline'}
+                        size={10}
+                        color={v.tipe_video === 'link' ? '#1D4ED8' : '#059669'}
+                    />
                     <Text style={[styles.vTipeText, { color: v.tipe_video === 'link' ? '#1D4ED8' : '#059669' }]}>
                         {v.tipe_video === 'link' ? 'Link' : 'File'}
                     </Text>
@@ -321,6 +336,8 @@ export default function ManageEdukasi() {
     // ─── RENDER ITEM ───
     const renderItem = ({ item, index }: { item: Edukasi; index: number }) => {
         const isExpanded = expandedId === item.id;
+        // ✅ Pakai helper getBadgeStyle
+        const badge = getBadgeStyle(item.kategori);
 
         return (
             <View>
@@ -347,18 +364,20 @@ export default function ManageEdukasi() {
                             </View>
                         ) : null}
                     </View>
+
+                    {/* ✅ Badge sekarang support semua 3 kategori */}
                     <View style={styles.colBadge}>
-                        <View style={[styles.badge, { backgroundColor: item.kategori === 'hama' ? '#FEE2E2' : '#DCFCE7' }]}>
-                            <View style={[styles.badgeDot, { backgroundColor: item.kategori === 'hama' ? '#EF4444' : '#16A34A' }]} />
-                            <Text style={[styles.badgeText, { color: item.kategori === 'hama' ? '#991B1B' : '#166534' }]}>
-                                {item.kategori === 'hama' ? 'Hama' : 'Penyakit'}
-                            </Text>
+                        <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+                            <View style={[styles.badgeDot, { backgroundColor: badge.dot }]} />
+                            <Text style={[styles.badgeText, { color: badge.text }]}>{badge.label}</Text>
                         </View>
                     </View>
+
                     <View style={styles.colAction}>
                         <TouchableOpacity onPress={() => toggleExpand(item.id)}
                             style={[styles.btnVideo, isExpanded && styles.btnVideoActive]}>
-                            <Ionicons name={isExpanded ? 'chevron-up' : 'videocam-outline'} size={13} color={isExpanded ? '#065F46' : '#059669'} />
+                            <Ionicons name={isExpanded ? 'chevron-up' : 'videocam-outline'} size={13}
+                                color={isExpanded ? '#065F46' : '#059669'} />
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => openEditEdukasi(item)} style={styles.btnEdit}>
                             <Ionicons name="pencil-outline" size={13} color="#1D4ED8" />
@@ -369,7 +388,7 @@ export default function ManageEdukasi() {
                     </View>
                 </View>
 
-                {/* ── Sub-tabel Video ── */}
+                {/* Sub-tabel Video */}
                 {isExpanded && (
                     <View style={styles.videoContainer}>
                         <View style={styles.videoHeader}>
@@ -381,13 +400,11 @@ export default function ManageEdukasi() {
                                 <Text style={styles.btnAddVideoText}>Tambah</Text>
                             </TouchableOpacity>
                         </View>
-
                         <View style={styles.vTableHeader}>
                             <View style={styles.vColNo}><Text style={styles.vThText}>No</Text></View>
                             <View style={styles.vColInfo}><Text style={styles.vThText}>Judul & Info</Text></View>
                             <View style={styles.vColAction}><Text style={[styles.vThText, { textAlign: 'center' }]}>Aksi</Text></View>
                         </View>
-
                         {item.video_edukasi && item.video_edukasi.length > 0
                             ? item.video_edukasi.map((v, i) => renderVideoRow(v, i, item.nama))
                             : (
@@ -405,7 +422,6 @@ export default function ManageEdukasi() {
         );
     };
 
-    // ─── JSX ───
     return (
         <SafeAreaView style={styles.container}>
 
@@ -424,19 +440,24 @@ export default function ManageEdukasi() {
                 </TouchableOpacity>
             </View>
 
-            {/* SUMMARY */}
+            {/* ✅ SUMMARY — sekarang 4 card */}
             <View style={styles.summaryRow}>
                 <View style={[styles.summaryCard, { borderLeftColor: '#16A34A' }]}>
                     <Text style={styles.summaryNum}>{list.length}</Text>
-                    <Text style={styles.summaryLabel}>Total Data</Text>
+                    <Text style={styles.summaryLabel}>Total</Text>
                 </View>
                 <View style={[styles.summaryCard, { borderLeftColor: '#EF4444' }]}>
                     <Text style={[styles.summaryNum, { color: '#B91C1C' }]}>{hamaCount}</Text>
                     <Text style={styles.summaryLabel}>Hama</Text>
                 </View>
-                <View style={[styles.summaryCard, { borderLeftColor: '#F59E0B' }]}>
-                    <Text style={[styles.summaryNum, { color: '#92400E' }]}>{penyakitCount}</Text>
+                <View style={[styles.summaryCard, { borderLeftColor: '#16A34A' }]}>
+                    <Text style={[styles.summaryNum, { color: '#166534' }]}>{penyakitCount}</Text>
                     <Text style={styles.summaryLabel}>Penyakit</Text>
+                </View>
+                {/* ✅ Card baru */}
+                <View style={[styles.summaryCard, { borderLeftColor: '#CA8A04' }]}>
+                    <Text style={[styles.summaryNum, { color: '#854D0E' }]}>{pertanianCount}</Text>
+                    <Text style={styles.summaryLabel}>Pertanian</Text>
                 </View>
             </View>
 
@@ -452,17 +473,25 @@ export default function ManageEdukasi() {
                         </TouchableOpacity>
                     )}
                 </View>
-                <View style={styles.filterRow}>
-                    {[{ key: 'all', label: '🌿 Semua' }, { key: 'hama', label: '🐛 Hama' }, { key: 'penyakit', label: '🍂 Penyakit' }]
-                        .map(({ key, label }) => (
+                {/* ✅ Filter chips — tambah pertanian_dasar */}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={styles.filterRow}>
+                        {[
+                            { key: 'all', label: '🌿 Semua' },
+                            { key: 'hama', label: '🐛 Hama' },
+                            { key: 'penyakit', label: '🍂 Penyakit' },
+                            { key: 'pertanian_dasar', label: '🌾 Pertanian Dasar' }, // ✅ baru
+                        ].map(({ key, label }) => (
                             <TouchableOpacity key={key} onPress={() => setFilterKategori(key)}
                                 style={[styles.filterChip, filterKategori === key && styles.filterChipActive]}>
-                                <Text style={[styles.filterText, filterKategori === key && styles.filterTextActive]}>{label}</Text>
+                                <Text style={[styles.filterText, filterKategori === key && styles.filterTextActive]}>
+                                    {label}
+                                </Text>
                             </TouchableOpacity>
                         ))}
-                    <View style={{ flex: 1 }} />
-                    <Text style={styles.countText}>{filtered.length} data</Text>
-                </View>
+                        <Text style={styles.countText}>{filtered.length} data</Text>
+                    </View>
+                </ScrollView>
             </View>
 
             {/* TABLE */}
@@ -496,7 +525,7 @@ export default function ManageEdukasi() {
                 </View>
             )}
 
-            {/* ═══════ MODAL ═══════ */}
+            {/* MODAL */}
             <Modal visible={modalVisible} animationType="slide">
                 <SafeAreaView style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
                     <ScrollView keyboardShouldPersistTaps="handled">
@@ -522,7 +551,6 @@ export default function ManageEdukasi() {
                             {/* ── FORM EDUKASI ── */}
                             {modalType === 'edukasi' && (
                                 <>
-                                    {/* Section: Info Utama */}
                                     <View style={styles.sectionBox}>
                                         <View style={styles.sectionHeader}>
                                             <View style={[styles.sectionIcon, { backgroundColor: '#EEF2FF' }]}>
@@ -557,6 +585,8 @@ export default function ManageEdukasi() {
                                             placeholder="Contoh: Wereng Cokelat" placeholderTextColor="#9CA3AF" />
 
                                         <Text style={styles.label}>Kategori <Text style={{ color: '#EF4444' }}>*</Text></Text>
+
+                                        {/* ✅ Baris 1: Hama & Penyakit */}
                                         <View style={styles.categoryRow}>
                                             {(['hama', 'penyakit'] as const).map(cat => (
                                                 <TouchableOpacity key={cat} onPress={() => setCategory(cat)}
@@ -570,13 +600,24 @@ export default function ManageEdukasi() {
                                             ))}
                                         </View>
 
+                                        {/* ✅ Baris 2: Pertanian Dasar (sendiri agar tidak terlalu sempit) */}
+                                        <View style={[styles.categoryRow, { marginTop: 8 }]}>
+                                            <TouchableOpacity
+                                                onPress={() => setCategory('pertanian_dasar')}
+                                                style={[styles.catOption, category === 'pertanian_dasar' && styles.catOptionActiveYellow]}>
+                                                <Text style={styles.catIcon}>🌾</Text>
+                                                <Text style={[styles.catText, category === 'pertanian_dasar' && styles.catTextActiveYellow]}>
+                                                    Pertanian Dasar
+                                                </Text>
+                                                {category === 'pertanian_dasar' && <Ionicons name="checkmark-circle" size={16} color="#CA8A04" />}
+                                            </TouchableOpacity>
+                                        </View>
+
                                         <Text style={styles.label}>Deskripsi <Text style={{ color: '#EF4444' }}>*</Text></Text>
                                         <TextInput style={[styles.input, styles.textArea]} multiline value={description}
                                             onChangeText={setDescription} placeholder="Jelaskan gejala dan informasi umum..."
                                             placeholderTextColor="#9CA3AF" textAlignVertical="top" />
                                     </View>
-
-                                    
 
                                     {/* Section: Solusi */}
                                     <View style={styles.sectionBox}>
@@ -689,10 +730,10 @@ const styles = StyleSheet.create({
     addBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#16A34A', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, elevation: 2 },
     addBtnText: { color: 'white', fontWeight: '700', fontSize: 13 },
 
-    summaryRow: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 14, gap: 10 },
-    summaryCard: { flex: 1, backgroundColor: 'white', borderRadius: 12, padding: 12, borderLeftWidth: 4, elevation: 2, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, shadowOffset: { width: 0, height: 1 } },
-    summaryNum: { fontSize: 22, fontWeight: '800', color: '#111827' },
-    summaryLabel: { fontSize: 11, color: '#9CA3AF', marginTop: 2, fontWeight: '500' },
+    summaryRow: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 14, gap: 8 },
+    summaryCard: { flex: 1, backgroundColor: 'white', borderRadius: 12, padding: 10, borderLeftWidth: 4, elevation: 2, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, shadowOffset: { width: 0, height: 1 } },
+    summaryNum: { fontSize: 20, fontWeight: '800', color: '#111827' },
+    summaryLabel: { fontSize: 10, color: '#9CA3AF', marginTop: 2, fontWeight: '500' },
 
     searchFilterContainer: { backgroundColor: 'white', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
     searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3F4F6', paddingHorizontal: 12, borderRadius: 10, height: 42, gap: 8 },
@@ -702,7 +743,7 @@ const styles = StyleSheet.create({
     filterChipActive: { backgroundColor: '#DCFCE7', borderColor: '#16A34A' },
     filterText: { fontSize: 12, color: '#6B7280', fontWeight: '500' },
     filterTextActive: { color: '#166534', fontWeight: '700' },
-    countText: { fontSize: 11, color: '#9CA3AF', fontWeight: '500' },
+    countText: { fontSize: 11, color: '#9CA3AF', fontWeight: '500', marginLeft: 4, alignSelf: 'center' },
 
     tableHeader: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1F2937', paddingHorizontal: 12, paddingVertical: 10 },
     thText: { fontSize: 11, fontWeight: '700', color: '#D1D5DB', textTransform: 'uppercase', letterSpacing: 0.5 },
@@ -732,7 +773,6 @@ const styles = StyleSheet.create({
     btnEdit: { backgroundColor: '#DBEAFE', padding: 7, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
     btnDel: { backgroundColor: '#FEE2E2', padding: 7, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
 
-    // Video sub-table
     videoContainer: { backgroundColor: '#EFF6FF', borderLeftWidth: 4, borderLeftColor: '#3B82F6' },
     videoHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, gap: 6, backgroundColor: '#DBEAFE', borderBottomWidth: 1, borderBottomColor: '#BFDBFE' },
     videoHeaderText: { fontSize: 12, fontWeight: '700', color: '#1E40AF' },
@@ -796,9 +836,13 @@ const styles = StyleSheet.create({
     categoryRow: { flexDirection: 'row', gap: 10 },
     catOption: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, backgroundColor: '#F9FAFB', borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 10, gap: 6 },
     catOptionActive: { borderColor: '#16A34A', backgroundColor: '#F0FDF4' },
+    // ✅ Style khusus pertanian_dasar (kuning)
+    catOptionActiveYellow: { borderColor: '#CA8A04', backgroundColor: '#FEFCE8' },
     catIcon: { fontSize: 16 },
     catText: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
     catTextActive: { color: '#166534' },
+    // ✅ Teks aktif kuning
+    catTextActiveYellow: { color: '#854D0E' },
 
     modalFooter: { flexDirection: 'row', gap: 12, marginTop: 8, marginBottom: 40 },
     btnCancel: { flex: 1, padding: 15, borderRadius: 12, alignItems: 'center', backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB' },
