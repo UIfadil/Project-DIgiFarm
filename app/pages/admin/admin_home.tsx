@@ -119,10 +119,10 @@ export default function AdminHome() {
           />
           
           <MenuButton 
-            title="Database Kuis" 
+            title="Kelola Soal Kuis" 
             icon="reader-outline" 
             color="#4B5563" 
-            onPress={() => alert('Fitur Database Kuis sedang disiapkan')}
+            onPress={() => router.push('/pages/admin/manage_sistem/manage_soal_kuis')}
           />
         </View>
 
