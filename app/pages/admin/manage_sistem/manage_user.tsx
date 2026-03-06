@@ -6,6 +6,7 @@ import {
 import api from '../../../services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import ConfirmDialog from '../../../components/ConfirmModal';
 
 interface User {
     id: number;
@@ -53,43 +54,50 @@ export default function ManageUsers() {
     }, [search, filterRole, users]);
 
     const handleDelete = (id: number, name: string) => {
-        Alert.alert("Hapus User", `Yakin ingin menghapus "${name}"?`, [
-            { text: "Batal", style: "cancel" },
-            {
-                text: "Hapus", style: 'destructive', onPress: async () => {
-                    try {
-                        await api.delete(`/admin/users/${id}`);
-                        fetchUsers();
-                    } catch {
-                        Alert.alert("Gagal", "Gagal menghapus user");
-                    }
+        showConfirm({
+            visible: true,
+            title: 'Hapus User',
+            message: `Yakin ingin menghapus "${name}"?`,
+            confirmText: 'Hapus',
+            confirmColor: '#DC2626',
+            icon: 'trash-outline',
+            iconColor: '#DC2626',
+            onConfirm: async () => {
+                hideConfirm();
+                try {
+                    await api.delete(`/admin/users/${id}`);
+                    fetchUsers();
+                } catch {
+                    // gunakan console.error atau state error, bukan Alert
+                    console.error("Gagal menghapus user");
                 }
-            }
-        ]);
+            },
+        });
     };
 
-    const toggleRole = async (id: number, currentRole: string) => {
+    const toggleRole = (id: number, currentRole: string) => {
         const newRole = currentRole === 'admin' ? 'user' : 'admin';
-        Alert.alert(
-            "Ubah Role",
-            `Jadikan ${newRole === 'admin' ? 'Admin' : 'User biasa'}?`,
-            [
-                { text: "Batal", style: "cancel" },
-                {
-                    text: "Ya, Ubah", onPress: async () => {
-                        setTogglingId(id);
-                        try {
-                            await api.put(`/admin/users/${id}/role`, { role: newRole });
-                            fetchUsers();
-                        } catch {
-                            Alert.alert("Gagal", "Gagal mengubah role");
-                        } finally {
-                            setTogglingId(null);
-                        }
-                    }
+        showConfirm({
+            visible: true,
+            title: 'Ubah Role',
+            message: `Jadikan ${newRole === 'admin' ? 'Admin' : 'User biasa'}?`,
+            confirmText: 'Ya, Ubah',
+            confirmColor: '#16A34A',
+            icon: 'swap-horizontal-outline',
+            iconColor: '#16A34A',
+            onConfirm: async () => {
+                hideConfirm();
+                setTogglingId(id);
+                try {
+                    await api.put(`/admin/users/${id}/role`, { role: newRole });
+                    fetchUsers();
+                } catch {
+                    console.error("Gagal mengubah role");
+                } finally {
+                    setTogglingId(null);
                 }
-            ]
-        );
+            },
+        });
     };
 
     // Hitung summary
@@ -167,6 +175,19 @@ export default function ManageUsers() {
             </View>
         </View>
     );
+
+    const [confirmDialog, setConfirmDialog] = useState<{
+        visible: boolean;
+        title: string;
+        message: string;
+        onConfirm: () => void;
+        icon?: any;
+        iconColor?: string;
+        confirmText?: string;
+        confirmColor?: string;
+    }>({ visible: false, title: '', message: '', onConfirm: () => {} });
+    const showConfirm = (config: typeof confirmDialog) => setConfirmDialog(config);
+    const hideConfirm = () => setConfirmDialog(prev => ({ ...prev, visible: false }));
 
     return (
         <SafeAreaView style={styles.container}>
@@ -268,6 +289,17 @@ export default function ManageUsers() {
                     />
                 </View>
             )}
+            <ConfirmDialog
+                visible={confirmDialog.visible}
+                title={confirmDialog.title}
+                message={confirmDialog.message}
+                confirmText={confirmDialog.confirmText}
+                confirmColor={confirmDialog.confirmColor}
+                icon={confirmDialog.icon}
+                iconColor={confirmDialog.iconColor}
+                onConfirm={confirmDialog.onConfirm}
+                onCancel={hideConfirm}
+            />
         </SafeAreaView>
     );
 }

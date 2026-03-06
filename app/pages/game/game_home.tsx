@@ -59,7 +59,7 @@ export default function LobbyGameKuis() {
 
                 {/* HEADER */}
                 <View style={styles.headerWrapper}>
-                    <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+                    <TouchableOpacity style={styles.backButton} onPress={() => router.push('/pages/dashboard')}>
                         <Ionicons name="arrow-back" size={20} color="white" />
                     </TouchableOpacity>
                     <View style={styles.titleContainer}>
