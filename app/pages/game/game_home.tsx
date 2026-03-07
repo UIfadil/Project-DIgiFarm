@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
-    View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
+    View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
+    Image // ✅ tambah
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +19,11 @@ interface ProfilExp {
     exp_level_next: number;
 }
 
+// ✅ tambah interface
+interface UserProfil {
+    foto_profil_url: string | null;
+}
+
 const LEVEL_ICON: Record<number, string> = {
     1: '🌱', 2: '📖', 3: '⚡', 4: '🔥', 5: '👑',
 };
@@ -32,6 +38,7 @@ export default function LobbyGameKuis() {
     const router = useRouter();
     const [profil, setProfil] = useState<ProfilExp | null>(null);
     const [loading, setLoading] = useState(true);
+    const [userProfil, setUserProfil] = useState<UserProfil | null>(null); // ✅ tambah
 
     const fetchProfil = async () => {
         try {
@@ -44,7 +51,20 @@ export default function LobbyGameKuis() {
         }
     };
 
-    useEffect(() => { fetchProfil(); }, []);
+    // ✅ tambah fetch foto profil
+    const fetchUserProfil = async () => {
+        try {
+            const res = await api.get('/profil');
+            setUserProfil(res.data);
+        } catch {
+            // fallback ke emoji
+        }
+    };
+
+    useEffect(() => {
+        fetchProfil();
+        fetchUserProfil(); // ✅ panggil bersamaan
+    }, []);
 
     const handleMain = (kategori: string) => {
         router.push({
@@ -79,10 +99,18 @@ export default function LobbyGameKuis() {
                         <View style={styles.statsCard}>
                             {/* Player info */}
                             <View style={styles.playerInfo}>
+                                {/* ✅ Avatar: foto profil atau fallback emoji */}
                                 <View style={styles.avatarWrapper}>
-                                    <Text style={styles.avatarEmoji}>
-                                        {LEVEL_ICON[profil?.level ?? 1]}
-                                    </Text>
+                                    {userProfil?.foto_profil_url ? (
+                                        <Image
+                                            source={{ uri: userProfil.foto_profil_url }}
+                                            style={styles.avatarImage}
+                                        />
+                                    ) : (
+                                        <Text style={styles.avatarEmoji}>
+                                            {LEVEL_ICON[profil?.level ?? 1]}
+                                        </Text>
+                                    )}
                                 </View>
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.playerName}>{profil?.nama ?? 'Petani'}</Text>
@@ -130,7 +158,7 @@ export default function LobbyGameKuis() {
                         </View>
                     )}
 
-                    {/* BANNER MAIN CEPAT — semua kategori */}
+                    {/* BANNER MAIN CEPAT */}
                     <TouchableOpacity
                         style={styles.playBanner}
                         activeOpacity={0.9}
@@ -197,8 +225,12 @@ const styles = StyleSheet.create({
 
     statsCard: { backgroundColor: 'white', borderRadius: 25, padding: 20, elevation: 8, shadowColor: '#16A34A', shadowOpacity: 0.1, shadowRadius: 15, marginBottom: 20 },
     playerInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-    avatarWrapper: { width: 50, height: 50, backgroundColor: '#F0FDF4', borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginRight: 12, borderWidth: 2, borderColor: '#86EFAC' },
+
+    // ✅ overflow hidden agar foto terpotong rapi
+    avatarWrapper: { width: 50, height: 50, backgroundColor: '#F0FDF4', borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginRight: 12, borderWidth: 2, borderColor: '#86EFAC', overflow: 'hidden' },
     avatarEmoji: { fontSize: 24 },
+    avatarImage: { width: 50, height: 50, borderRadius: 25 }, // ✅ tambah
+
     playerName: { fontSize: 18, fontWeight: 'bold', color: '#374151' },
     playerLevel: { fontSize: 12, color: '#16A34A', fontWeight: '600' },
 

@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Image,
     SafeAreaView,
     ScrollView,
     StyleSheet,
@@ -19,6 +20,10 @@ interface RankingUser {
     total_exp: number;
     level: number;
     nama_level: string;
+}
+
+interface UserProfil {
+    foto_profil_url: string | null;
 }
 
 const LEVEL_CONFIG: Record<number, { color: string; bg: string; icon: string }> = {
@@ -38,6 +43,7 @@ export default function PapanRanking() {
     const [loading, setLoading] = useState(true);
     const [rankings, setRankings] = useState<RankingUser[]>([]);
     const [myRank, setMyRank] = useState<RankingUser | null>(null);
+    const [myProfil, setMyProfil] = useState<UserProfil | null>(null);
 
     const fetchRanking = async () => {
         try {
@@ -52,7 +58,19 @@ export default function PapanRanking() {
         }
     };
 
-    useEffect(() => { fetchRanking(); }, []);
+    const fetchMyProfil = async () => {
+        try {
+            const res = await api.get('/profil');
+            setMyProfil(res.data);
+        } catch {
+            // fallback tanpa foto
+        }
+    };
+
+    useEffect(() => {
+        fetchRanking();
+        fetchMyProfil();
+    }, []);
 
     const top3 = rankings.slice(0, 3);
 
@@ -67,17 +85,31 @@ export default function PapanRanking() {
                 {order.map((user, i) => {
                     if (!user) return <View key={`podium-empty-${i}`} style={{ flex: 1 }} />;
                     const realRank = realRanks[i];
-                    const lvl = LEVEL_CONFIG[user.level] || LEVEL_CONFIG[1];
                     const barColor = realRank === 1 ? '#F59E0B' : realRank === 2 ? '#9CA3AF' : '#CD7C2F';
+                    const isMe = myRank?.user_id === user.user_id;
+
                     return (
-                        // ✅ key pakai prefix podium- agar tidak bentrok dengan list
                         <View key={`podium-${user.user_id}`} style={styles.podiumItem}>
-                            <View style={[styles.podiumAvatar, {
+                            {/* ✅ inline avatar — tidak pakai komponen terpisah */}
+                            <View style={{
                                 width: sizes[i], height: sizes[i],
                                 borderRadius: sizes[i] / 2,
+                                backgroundColor: 'white',
+                                borderWidth: 3,
                                 borderColor: barColor,
-                            }]}>
-                                <Text style={{ fontSize: sizes[i] * 0.45 }}>👨‍🌾</Text>
+                                overflow: 'hidden',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                marginBottom: 4,
+                            }}>
+                                {isMe && myProfil?.foto_profil_url ? (
+                                    <Image
+                                        source={{ uri: myProfil.foto_profil_url }}
+                                        style={{ width: sizes[i], height: sizes[i] }}
+                                    />
+                                ) : (
+                                    <Text style={{ fontSize: sizes[i] * 0.45 }}>👨‍🌾</Text>
+                                )}
                             </View>
                             <Text style={styles.podiumMedal}>{RANK_MEDAL[realRank]}</Text>
                             <Text style={styles.podiumName} numberOfLines={1}>{user.nama}</Text>
@@ -92,13 +124,11 @@ export default function PapanRanking() {
         );
     };
 
-    // ✅ Tambah param prefix untuk bedakan key di "Posisi Kamu" vs list
     const renderRankRow = (user: RankingUser, index: number, keyPrefix: string = 'list') => {
         const lvl = LEVEL_CONFIG[user.level] || LEVEL_CONFIG[1];
         const isMe = myRank?.user_id === user.user_id;
 
         return (
-            // ✅ key pakai prefix sehingga tidak duplikat
             <View key={`${keyPrefix}-${user.user_id}`}
                 style={[styles.rankRow, index % 2 === 0 && styles.rankRowEven, isMe && styles.rankRowMe]}>
 
@@ -106,8 +136,19 @@ export default function PapanRanking() {
                     <Text style={[styles.rankNo, isMe && { color: '#16A34A' }]}>#{user.rank}</Text>
                 </View>
 
-                <View style={[styles.rankAvatar, { backgroundColor: lvl.bg, borderColor: lvl.color }]}>
-                    <Text style={{ fontSize: 18 }}>👨‍🌾</Text>
+                {/* ✅ inline avatar */}
+                <View style={[styles.rankAvatar, {
+                    borderColor: isMe ? '#16A34A' : lvl.color,
+                    backgroundColor: lvl.bg,
+                }]}>
+                    {isMe && myProfil?.foto_profil_url ? (
+                        <Image
+                            source={{ uri: myProfil.foto_profil_url }}
+                            style={{ width: 40, height: 40, borderRadius: 20 }}
+                        />
+                    ) : (
+                        <Text style={{ fontSize: 18 }}>👨‍🌾</Text>
+                    )}
                 </View>
 
                 <View style={{ flex: 1 }}>
@@ -169,7 +210,6 @@ export default function PapanRanking() {
                     {myRank && myRank.rank > 3 && (
                         <View style={styles.myRankSection}>
                             <Text style={styles.myRankTitle}>📍 Posisi Kamu</Text>
-                            {/* ✅ prefix 'myrank' agar key tidak bentrok dengan list */}
                             {renderRankRow(myRank, 0, 'myrank')}
                         </View>
                     )}
@@ -191,7 +231,6 @@ export default function PapanRanking() {
                                 <Text style={styles.emptySub}>Jadilah yang pertama menyelesaikan kuis!</Text>
                             </View>
                         ) : (
-                            // ✅ prefix 'list' untuk semua item di list utama
                             rankings.map((user, i) => renderRankRow(user, i, 'list'))
                         )}
                     </View>
@@ -216,7 +255,6 @@ const styles = StyleSheet.create({
     podiumSection: { backgroundColor: '#16A34A', paddingBottom: 30, paddingTop: 10 },
     podiumWrapper: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', paddingHorizontal: 20, gap: 8 },
     podiumItem: { alignItems: 'center', flex: 1 },
-    podiumAvatar: { backgroundColor: 'white', justifyContent: 'center', alignItems: 'center', borderWidth: 3, marginBottom: 4 },
     podiumMedal: { fontSize: 20, marginBottom: 2 },
     podiumName: { fontSize: 11, fontWeight: '700', color: 'white', marginBottom: 2, textAlign: 'center' },
     podiumExp: { fontSize: 10, color: 'rgba(255,255,255,0.8)', marginBottom: 6 },
@@ -237,7 +275,7 @@ const styles = StyleSheet.create({
 
     rankNoBox: { width: 40, alignItems: 'center' },
     rankNo: { fontSize: 13, fontWeight: '800', color: '#6B7280' },
-    rankAvatar: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', borderWidth: 2 },
+    rankAvatar: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', borderWidth: 2, overflow: 'hidden' },
     rankNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     rankName: { fontSize: 13, fontWeight: '700', color: '#1F2937' },
     meBadge: { backgroundColor: '#DCFCE7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
