@@ -81,26 +81,6 @@ export default function PengaturanAplikasi() {
             </View>
           </View>
 
-          {/* Settings Groups */}
-          <View style={styles.sectionGroup}>
-            <Text style={styles.sectionLabel}>Aplikasi</Text>
-            <SettingItem 
-              icon="🔔" 
-              title="Notifikasi" 
-              subtitle="Peringatan hama & jadwal pupuk"
-              isSwitch={true}
-              value={isNotificationEnabled}
-              onValueChange={setIsNotificationEnabled}
-            />
-            <SettingItem 
-              icon="🌙" 
-              title="Mode Gelap" 
-              isSwitch={true}
-              value={isDarkMode}
-              onValueChange={setIsDarkMode}
-            />
-          </View>
-
           <View style={styles.sectionGroup}>
             <Text style={styles.sectionLabel}>Informasi</Text>
             <SettingItem 
@@ -122,15 +102,6 @@ export default function PengaturanAplikasi() {
               title="Keluar Akun" 
               isDestructive={true}
               onPress={() => router.push('/pages/autentikasi/login')} 
-            />
-          </View>
-
-          <View style={styles.sectionGroup}>
-            <SettingItem 
-              icon="🚪" 
-              title="Tombol sementara ke halaman admin" 
-              isDestructive={true}
-              onPress={() => router.push('/pages/admin/admin_home')} 
             />
           </View>
 
