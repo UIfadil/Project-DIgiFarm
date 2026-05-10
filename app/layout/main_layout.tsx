@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, StatusBar } from 'react-native';
-import { useRouter, usePathname } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
+import React from 'react';
+import { StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -21,7 +21,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#22c55e" />
-      
+
       {/* Header Tetap Sama */}
       <View style={styles.header}>
         <View style={styles.logoContainer}>
@@ -78,8 +78,8 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: '#22c55e',
     paddingHorizontal: 24,
-    paddingTop: 10,
-    paddingBottom: 16,
+    paddingTop: 50,
+    paddingBottom: 10,
   },
   logoContainer: {
     flexDirection: 'row',
@@ -110,23 +110,23 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
-    height: 60, // Sedikit lebih tinggi untuk kenyamanan
+    height: 110, // Sedikit lebih tinggi untuk kenyamanan
     alignItems: 'center',
     justifyContent: 'space-between', // Gunakan space-between agar merata ke pinggir
     paddingHorizontal: 10,
-    
+
   },
   navItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 2,
+    paddingBottom: 20,
   },
   centerSpaceHolder: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 35,
+    paddingBottom: 70,
   },
   navIcon: {
     fontSize: 22,
