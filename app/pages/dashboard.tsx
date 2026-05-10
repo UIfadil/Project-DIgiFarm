@@ -116,12 +116,12 @@ export default function Dashboard() {
 
             <TouchableOpacity 
               style={styles.featureItem} 
-              onPress={() => router.push('/pages/edukasi/edukasi_home')} // Tambahkan ini
+              onPress={() => router.push('/pages/scanAI/riwayat_scanAI')} // Tambahkan ini
             >
               <View style={styles.featureIcon}>
                 <Text style={styles.featureEmoji}>📋</Text>
               </View>
-              <Text style={styles.featureLabel}>Lainnya</Text>
+              <Text style={styles.featureLabel}>Riwayat AI</Text>
             </TouchableOpacity>
           </View>
 
