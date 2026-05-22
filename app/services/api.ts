@@ -1,43 +1,45 @@
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
 
 const api = axios.create({
   baseURL: process.env.EXPO_PUBLIC_API_URL,
   timeout: 15000,
   headers: {
-    'Accept': 'application/json',
-    'Content-Type': 'application/json',
-  }
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  },
 });
+
+console.log("=== BASE URL ===", process.env.EXPO_PUBLIC_API_URL);
 
 api.interceptors.request.use(
   async (config) => {
-    const token = await AsyncStorage.getItem('userToken');
+    const token = await AsyncStorage.getItem("userToken");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
 
     if (config.data instanceof FormData) {
-      delete config.headers['Content-Type'];
+      delete config.headers["Content-Type"];
       config.transformRequest = [(data) => data]; // ✅ KUNCI: cegah Axios ubah FormData
     }
 
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (__DEV__) {
-      console.log('=== API ERROR ===');
-      console.log('URL   :', error.config?.url);
-      console.log('Status:', error.response?.status);
-      console.log('Data  :', JSON.stringify(error.response?.data));
+      console.log("=== API ERROR ===");
+      console.log("URL   :", error.config?.url);
+      console.log("Status:", error.response?.status);
+      console.log("Data  :", JSON.stringify(error.response?.data));
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 export default api;
