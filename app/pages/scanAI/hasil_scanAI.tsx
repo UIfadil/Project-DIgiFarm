@@ -255,7 +255,7 @@ export default function AnalysisResult() {
           <View style={styles.footerButtons}>
             <TouchableOpacity style={styles.btnChatExpert}>
               <Ionicons name="chatbubbles" size={20} color="white" />
-              <Text style={styles.btnChatText}>Tanya Ahli</Text>
+              <Text style={styles.btnChatText}>Lihat Riwayat AI</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
