@@ -15,13 +15,18 @@ console.log("=== BASE URL ===", process.env.EXPO_PUBLIC_API_URL);
 api.interceptors.request.use(
   async (config) => {
     const token = await AsyncStorage.getItem("userToken");
-    if (token) {
+
+    // Jangan kirim token saat login/register
+    const isAuthRoute =
+      config.url?.includes("/login") || config.url?.includes("/register");
+
+    if (token && !isAuthRoute) {
       config.headers.Authorization = `Bearer ${token}`;
     }
 
     if (config.data instanceof FormData) {
       delete config.headers["Content-Type"];
-      config.transformRequest = [(data) => data]; // ✅ KUNCI: cegah Axios ubah FormData
+      config.transformRequest = [(data) => data];
     }
 
     return config;
