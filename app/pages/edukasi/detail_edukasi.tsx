@@ -1,10 +1,3 @@
-// ============================================================
-//  FILE: app/pages/edukasi/detail_edukasi.tsx
-//
-//  Install dependency:
-//    npx expo install react-native-webview expo-video-thumbnails
-// ============================================================
-
 import React, { useEffect, useState } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
@@ -15,6 +8,7 @@ import { WebView } from 'react-native-webview';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import MainLayout from '../../layout/main_layout';
 import api from '../../services/api';
+import * as WebBrowser from 'expo-web-browser';
 
 interface VideoEdukasi {
     id: number;
@@ -60,19 +54,34 @@ function buildYoutubeHtml(videoId: string): string {
     return `<!DOCTYPE html>
 <html>
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    * { margin:0; padding:0; background:#000; box-sizing:border-box; }
+    * { margin:0; padding:0; box-sizing:border-box; background:#000; }
     body { width:100vw; height:100vh; display:flex; align-items:center; justify-content:center; }
-    iframe { width:100%; height:100%; border:none; }
+    #player { width:100%; height:100%; }
   </style>
 </head>
 <body>
-  <iframe
-    src="https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&playsinline=1"
-    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-    allowfullscreen
-  ></iframe>
+  <div id="player"></div>
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script>
+    var player;
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('player', {
+        videoId: '${videoId}',
+        playerVars: {
+          autoplay: 1,
+          playsinline: 1,
+          rel: 0,
+          modestbranding: 1,
+          origin: 'https://www.youtube.com'
+        },
+        events: {
+          onReady: function(e) { e.target.playVideo(); }
+        }
+      });
+    }
+  </script>
 </body>
 </html>`;
 }
@@ -150,7 +159,15 @@ function VideoItem({ item, index, total, baseUrl }: VideoItemProps) {
                 <TouchableOpacity
                     style={vstyles.thumbnailBox}
                     activeOpacity={0.85}
-                    onPress={() => setIsPlaying(true)}
+                    onPress={() => {
+                        if (item.tipe_video === 'link') {
+                            // ✅ YouTube → buka di browser eksternal (tidak ada error 153)
+                            WebBrowser.openBrowserAsync(item.video);
+                        } else {
+                            // File upload → tetap putar inline
+                            setIsPlaying(true);
+                        }
+                    }}
                 >
                     {item.tipe_video === 'link' ? (
                         // ── YouTube: thumbnail dari CDN ──
@@ -220,19 +237,14 @@ function VideoItem({ item, index, total, baseUrl }: VideoItemProps) {
 
             <View style={vstyles.playerBox}>
                 <WebView
-                    source={{
-                        html: isYoutube && videoId
-                            ? buildYoutubeHtml(videoId)
-                            : isYoutube
-                                ? buildVideoFileHtml(item.video) // link non-YT
-                                : buildVideoFileHtml(fileUrl),   // file upload
-                    }}
+                    source={{ html: buildVideoFileHtml(fileUrl) }} // ← hanya untuk file
                     style={vstyles.webview}
                     allowsFullscreenVideo
                     javaScriptEnabled
                     domStorageEnabled
                     mediaPlaybackRequiresUserAction={false}
                     originWhitelist={['*']}
+                    allowsInlineMediaPlayback
                 />
                 <TouchableOpacity
                     style={vstyles.closeBtn}
@@ -242,9 +254,7 @@ function VideoItem({ item, index, total, baseUrl }: VideoItemProps) {
                 </TouchableOpacity>
             </View>
 
-            {item.keterangan_video
-                ? <VideoDesc text={item.keterangan_video} />
-                : null}
+            {item.keterangan_video ? <VideoDesc text={item.keterangan_video} /> : null}
             {index !== total - 1 && <View style={vstyles.separator} />}
         </View>
     );
