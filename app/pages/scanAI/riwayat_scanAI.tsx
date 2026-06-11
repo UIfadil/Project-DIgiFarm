@@ -5,7 +5,6 @@ import {
   Image,
   Modal,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -18,21 +17,34 @@ import { useRouter } from "expo-router";
 
 import api from "../../services/api";
 
-// ── STATUS CONFIG ────────────────────────────────────────────────
+// ── STATUS CONFIG — lengkap sesuai semua kemungkinan dari controller ──
+// Controller bisa return: "Sangat Bahaya" | "Bahaya" | "Waspada" | "Aman"
 const statusConfig: Record<
   string,
   { color: string; bg: string; icon: string }
 > = {
+  "Sangat Bahaya": { color: "#DC2626", bg: "#FEE2E2", icon: "alert-circle" },
   Bahaya: { color: "#EF4444", bg: "#FEE2E2", icon: "alert-circle" },
   Waspada: { color: "#F59E0B", bg: "#FEF3C7", icon: "warning" },
+  Aman: { color: "#16A34A", bg: "#D1FAE5", icon: "checkmark-circle" },
+  // Fallback legacy
   Sehat: { color: "#16A34A", bg: "#D1FAE5", icon: "checkmark-circle" },
 };
 
+// ── KATEGORI CONFIG — lengkap termasuk multi-class dan edge cases ──
+// Controller bisa return: "Hama" | "Penyakit" | "Hama dan Penyakit" | "Normal" | "Tidak Dikenal"
 const kategoriConfig: Record<string, { color: string; bg: string }> = {
   Hama: { color: "#DC2626", bg: "#FEE2E2" },
   Penyakit: { color: "#D97706", bg: "#FEF3C7" },
+  "Hama dan Penyakit": { color: "#7C3AED", bg: "#EDE9FE" },
+  Normal: { color: "#059669", bg: "#D1FAE5" },
+  "Tidak Dikenal": { color: "#6B7280", bg: "#F3F4F6" },
+  // Fallback legacy
   Sehat: { color: "#059669", bg: "#D1FAE5" },
 };
+
+// ── FILTER TABS — berdasarkan kategori ───────────────────────────
+const FILTERS = ["Semua", "Hama dan Penyakit", "Hama", "Penyakit"];
 
 // ── MODAL DETAIL ─────────────────────────────────────────────────
 function ModalDetail({
@@ -60,7 +72,7 @@ function ModalDetail({
 
   if (!item) return null;
 
-  const sc = statusConfig[item.status] ?? statusConfig["Sehat"];
+  const sc = statusConfig[item.status] ?? statusConfig["Aman"];
   const bboxReady = imageLayout && naturalSize;
 
   let scale = 1,
@@ -75,15 +87,17 @@ function ModalDetail({
   }
 
   // Dukung detections array MAUPUN bbox single dari backend
+  // Catatan: confidence dari controller sudah dalam persen (tidak perlu dikali 100)
   const detections: any[] =
     item.detections && item.detections.length > 0
       ? item.detections
-      : item.bbox
+      : item.bbox && item.bbox.length > 0
         ? [
             {
               bbox: item.bbox,
               class: item.disease_name,
-              confidence: item.accuracy / 100,
+              name: item.disease_name,
+              confidence: item.accuracy, // sudah persen dari controller
             },
           ]
         : [];
@@ -112,6 +126,7 @@ function ModalDetail({
 
             {bboxReady &&
               detections.map((det: any, index: number) => {
+                if (!det.bbox || det.bbox.length < 4) return null;
                 const [x1, y1, x2, y2] = det.bbox;
                 const left = x1 * scale + offsetX;
                 const top = y1 * scale + offsetY;
@@ -128,6 +143,10 @@ function ModalDetail({
                   imageLayout!.height - clampedTop,
                 );
 
+                const detSc =
+                  statusConfig[det.status ?? item.status] ??
+                  statusConfig["Aman"];
+
                 return (
                   <View
                     key={index}
@@ -138,16 +157,21 @@ function ModalDetail({
                       width: clampedWidth,
                       height: clampedHeight,
                       borderWidth: 2.5,
-                      borderColor: sc.color,
+                      borderColor: detSc.color,
                       borderRadius: 6,
                     }}
                     pointerEvents="none"
                   >
                     <View
-                      style={[styles.bboxLabel, { backgroundColor: sc.color }]}
+                      style={[
+                        styles.bboxLabel,
+                        { backgroundColor: detSc.color },
+                      ]}
                     >
                       <Text style={styles.bboxLabelText}>
-                        {det.class} ({(det.confidence * 100).toFixed(1)}%)
+                        {/* confidence sudah persen dari controller — tidak perlu dikali 100 */}
+                        {det.name ?? det.class} (
+                        {Number(det.confidence).toFixed(1)}%)
                       </Text>
                     </View>
                   </View>
@@ -159,7 +183,9 @@ function ModalDetail({
             </TouchableOpacity>
 
             <View style={styles.badgeAccuracy}>
-              <Text style={styles.accuracyText}>Akurasi {item.accuracy}%</Text>
+              <Text style={styles.accuracyText}>
+                Akurasi {Number(item.accuracy).toFixed(1)}%
+              </Text>
             </View>
 
             <View style={styles.badgeTanggal}>
@@ -250,7 +276,7 @@ function ModalDetail({
 
 // ── CARD ─────────────────────────────────────────────────────────
 function KartuRiwayat({ item, onPress }: { item: any; onPress: () => void }) {
-  const sc = statusConfig[item.status] ?? statusConfig["Sehat"];
+  const sc = statusConfig[item.status] ?? statusConfig["Aman"];
 
   return (
     <TouchableOpacity
@@ -268,155 +294,149 @@ function KartuRiwayat({ item, onPress }: { item: any; onPress: () => void }) {
           </Text>
         </View>
 
-        <Text style={styles.cardTitle}>{item.disease_name}</Text>
-        <Text style={styles.cardLatin}>{item.latin_name}</Text>
+        <Text style={styles.cardTitle} numberOfLines={1}>
+          {item.disease_name}
+        </Text>
+        <Text style={styles.cardLatin} numberOfLines={1}>
+          {item.latin_name}
+        </Text>
 
+        {/* Accuracy Bar */}
         <View style={styles.akurasiRow}>
           <View style={styles.akurasiBar}>
             <View
               style={[
                 styles.akurasiFill,
                 {
-                  width: `${item.accuracy}%` as any,
+                  width: `${Math.min(Number(item.accuracy), 100)}%`,
                   backgroundColor: sc.color,
                 },
               ]}
             />
           </View>
           <Text style={[styles.akurasiPct, { color: sc.color }]}>
-            {item.accuracy}%
+            {Number(item.accuracy).toFixed(1)}%
           </Text>
         </View>
 
         <View style={styles.tanggalRow}>
-          <Ionicons name="calendar-outline" size={11} color="#9CA3AF" />
+          <Ionicons name="time-outline" size={11} color="#9CA3AF" />
           <Text style={styles.tanggalText}>
             {item.tanggal} · {item.waktu}
           </Text>
         </View>
       </View>
-
-      <Ionicons
-        name="chevron-forward"
-        size={18}
-        color="#D1D5DB"
-        style={{ alignSelf: "center" }}
-      />
     </TouchableOpacity>
   );
 }
 
-// ── PAGE ─────────────────────────────────────────────────────────
+// ── MAIN SCREEN ──────────────────────────────────────────────────
 export default function RiwayatScanAI() {
   const router = useRouter();
-
-  const [riwayat, setRiwayat] = useState<any[]>([]);
-  const [selected, setSelected] = useState<any | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [filter, setFilter] = useState<"Semua" | "Hama" | "Penyakit" | "Sehat">(
-    "Semua",
-  );
-
-  const FILTERS = ["Semua", "Hama", "Penyakit", "Sehat"] as const;
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<any>(null);
+  const [activeFilter, setActiveFilter] = useState("Semua");
 
   useEffect(() => {
-    fetchRiwayat();
+    fetchHistory();
   }, []);
 
-  const fetchRiwayat = async () => {
+  const fetchHistory = async () => {
     try {
       setLoading(true);
-      const response = await api.get("/histories");
-      // Data sudah lengkap dari backend — tidak perlu enrichment
-      setRiwayat(response.data);
-    } catch (error) {
-      console.log("ERROR FETCH:", error);
+      const res = await api.get("/histories");
+      // Controller return: { status, data: [...] }
+      setData(res.data.data ?? []);
+    } catch {
+      Alert.alert("Gagal", "Tidak dapat memuat riwayat.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async (id: number) => {
-    Alert.alert(
-      "Hapus Riwayat",
-      "Apakah kamu yakin ingin menghapus riwayat ini?",
-      [
-        { text: "Batal", style: "cancel" },
-        {
-          text: "Hapus",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await api.delete(`/histories/${id}`);
-              setRiwayat((prev) => prev.filter((item) => item.id !== id));
-              setSelected(null);
-            } catch (error) {
-              console.log("ERROR DELETE:", error);
-            }
-          },
+    Alert.alert("Hapus Riwayat", "Yakin ingin menghapus riwayat ini?", [
+      { text: "Batal", style: "cancel" },
+      {
+        text: "Hapus",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await api.delete(`/histories/${id}`);
+            setSelected(null);
+            setData((prev) => prev.filter((item) => item.id !== id));
+          } catch {
+            Alert.alert("Gagal", "Riwayat tidak dapat dihapus.");
+          }
         },
-      ],
-    );
+      },
+    ]);
   };
 
-  const filtered =
-    filter === "Semua" ? riwayat : riwayat.filter((d) => d.kategori === filter);
+  const filteredData =
+    activeFilter === "Semua"
+      ? data
+      : activeFilter === "Hama dan Penyakit"
+        ? data.filter((item) => item.kategori === "Hama dan Penyakit")
+        : data.filter(
+            (item) =>
+              item.kategori === activeFilter ||
+              item.kategori === "Hama dan Penyakit",
+          );
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-
       {/* HEADER */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color="#1F2937" />
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={20} color="white" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Riwayat Scan AI</Text>
+        <Text style={styles.headerTitle}>Riwayat Scan</Text>
         <View style={{ width: 38 }} />
       </View>
 
-      {/* FILTER */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ flexGrow: 0, backgroundColor: "#fff" }}
-        contentContainerStyle={styles.filterContent}
-      >
+      {/* FILTER TABS */}
+      <View style={styles.filterContent}>
         {FILTERS.map((f) => (
           <TouchableOpacity
             key={f}
-            style={[styles.filterBtn, filter === f && styles.filterBtnActive]}
-            onPress={() => setFilter(f)}
+            style={[
+              styles.filterBtn,
+              activeFilter === f && styles.filterBtnActive,
+            ]}
+            onPress={() => setActiveFilter(f)}
           >
             <Text
               style={[
                 styles.filterText,
-                filter === f && styles.filterTextActive,
+                activeFilter === f && styles.filterTextActive,
               ]}
             >
               {f}
             </Text>
           </TouchableOpacity>
         ))}
-      </ScrollView>
+      </View>
 
       {/* JUMLAH */}
-      <Text style={styles.jumlahText}>{filtered.length} hasil ditemukan</Text>
+      <Text style={styles.jumlahText}>
+        {filteredData.length} hasil ditemukan
+      </Text>
 
       {/* LIST */}
       {loading ? (
         <View style={styles.empty}>
-          <Text style={styles.emptyText}>Memuat data...</Text>
+          <Text style={styles.emptyText}>Memuat riwayat...</Text>
         </View>
       ) : (
         <FlatList
-          data={filtered}
-          keyExtractor={(item) => item.id.toString()}
+          data={filteredData}
+          keyExtractor={(item) => String(item.id)}
           renderItem={({ item }) => (
             <KartuRiwayat item={item} onPress={() => setSelected(item)} />
           )}
           contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="scan-outline" size={52} color="#D1D5DB" />
@@ -445,9 +465,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingTop: 40,
     paddingVertical: 14,
     backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
   },
   backBtn: {
     width: 38,
@@ -461,9 +482,13 @@ const styles = StyleSheet.create({
 
   filterContent: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 8,
+    paddingVertical: 12,
     flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
   },
   filterBtn: {
     paddingHorizontal: 16,
@@ -472,14 +497,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#F3F4F6",
   },
   filterBtnActive: { backgroundColor: "#16A34A" },
-  filterText: { fontSize: 13, color: "#6B7280" },
+  filterText: { fontSize: 13, color: "#6B7280", fontWeight: "500" },
   filterTextActive: { color: "#fff", fontWeight: "700" },
 
   jumlahText: {
     fontSize: 12,
     color: "#9CA3AF",
     paddingHorizontal: 18,
-    paddingTop: 8,
+    paddingTop: 4,
     paddingBottom: 2,
   },
   listContent: { paddingHorizontal: 16, paddingBottom: 30, paddingTop: 6 },
@@ -490,6 +515,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 12,
     padding: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   cardImage: { width: 85, height: 85, borderRadius: 12 },
   cardContent: { flex: 1, marginLeft: 12, marginRight: 6 },
@@ -532,7 +562,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   akurasiFill: { height: "100%", borderRadius: 10 },
-  akurasiPct: { fontSize: 11, fontWeight: "700", minWidth: 36 },
+  akurasiPct: { fontSize: 11, fontWeight: "700", minWidth: 40 },
 
   tanggalRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   tanggalText: { fontSize: 11, color: "#9CA3AF" },
@@ -540,6 +570,7 @@ const styles = StyleSheet.create({
   empty: { alignItems: "center", paddingTop: 80, gap: 12 },
   emptyText: { fontSize: 14, color: "#9CA3AF" },
 
+  /* ── Modal ── */
   modalOverlay: { flex: 1, backgroundColor: "#F9FAFB" },
   modalSafe: { flex: 1 },
 
@@ -636,7 +667,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: 15,
   },
-
   actionItem: {
     flexDirection: "row",
     alignItems: "flex-start",

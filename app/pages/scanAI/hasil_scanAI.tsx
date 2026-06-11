@@ -12,265 +12,299 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
-const IMAGE_DISPLAY_HEIGHT = 500;
+const { width } = Dimensions.get("window");
 
-export default function AnalysisResult() {
+// ── STATUS CONFIG — sesuai semua kemungkinan nilai dari controller ──
+const statusConfig: Record<
+  string,
+  { color: string; bg: string; border: string; iconName: string }
+> = {
+  "Sangat Bahaya": {
+    color: "#DC2626",
+    bg: "#FEF2F2",
+    border: "#FECACA",
+    iconName: "alert-circle",
+  },
+  Bahaya: {
+    color: "#EA580C",
+    bg: "#FFF7ED",
+    border: "#FED7AA",
+    iconName: "alert-circle",
+  },
+  Waspada: {
+    color: "#D97706",
+    bg: "#FFFBEB",
+    border: "#FDE68A",
+    iconName: "warning",
+  },
+  Aman: {
+    color: "#16A34A",
+    bg: "#F0FDF4",
+    border: "#BBF7D0",
+    iconName: "checkmark-circle",
+  },
+};
+
+const kategoriConfig: Record<string, { color: string; bg: string }> = {
+  Hama: { color: "#DC2626", bg: "#FEE2E2" },
+  Penyakit: { color: "#D97706", bg: "#FEF3C7" },
+  "Hama dan Penyakit": { color: "#7C3AED", bg: "#EDE9FE" },
+  Normal: { color: "#059669", bg: "#D1FAE5" },
+  "Tidak Dikenal": { color: "#6B7280", bg: "#F3F4F6" },
+};
+
+export default function HasilScanAI() {
   const router = useRouter();
-  const { imageUri, result } = useLocalSearchParams();
-  const parsedResult = result ? JSON.parse(result as string) : null;
+  const params = useLocalSearchParams();
 
-  // Simpan layout aktual container gambar (bukan Dimensions)
-  const [imageLayout, setImageLayout] = useState<{
-    width: number;
-    height: number;
-  } | null>(null);
+  // ── PARSING PARAMS dari scanAI_home.tsx ──────────────────────────
+  // router.push({ params: { imageUri, result: JSON.stringify(data) } })
+  const imageUri = params.imageUri as string;
+  const rawResult = params.result as string;
 
-  // Simpan ukuran asli file gambar
+  let parsedResult: any = null;
+  try {
+    parsedResult = JSON.parse(rawResult);
+  } catch {
+    parsedResult = null;
+  }
+
+  // ── EKSTRAK DATA dari response controller ─────────────────────────
+  // Controller format:
+  // { status, detections: [...], summary: { disease_name, latin_name,
+  //   accuracy (sudah persen), status, kategori, description, actions,
+  //   safety_warning, foto, bbox_image } }
+  const detections: any[] = parsedResult?.detections ?? [];
+  const summary = parsedResult?.summary ?? {};
+
+  const diseaseName = summary.disease_name ?? "Tanaman Sehat / Normal";
+  const latinName = summary.latin_name ?? "-";
+  // accuracy dari controller sudah dalam persen (misal 88.5), langsung pakai
+  const accuracy =
+    summary.accuracy != null ? Number(summary.accuracy).toFixed(1) : "100.0";
+  const status = summary.status ?? "Aman";
+  const kategori = summary.kategori ?? "Normal";
+  const description = summary.description ?? "";
+  const actions: string[] = summary.actions ?? [];
+  const safetyWarning: string | null = summary.safety_warning ?? null;
+  // Gunakan foto dari summary jika ada (URL dari storage Laravel),
+  // fallback ke imageUri lokal yang dikirim dari kamera
+  const displayImageUri = summary.foto ?? imageUri;
+
+  // ── BOUNDING BOX — hitung ulang berdasarkan ukuran frame gambar ───
+  const IMAGE_HEIGHT = width * 0.75;
   const [naturalSize, setNaturalSize] = useState<{
     width: number;
     height: number;
   } | null>(null);
 
-  // Bbox hanya dirender setelah keduanya siap
-  const bboxReady = imageLayout && naturalSize;
+  const sc = statusConfig[status] ?? statusConfig["Aman"];
+  const kc = kategoriConfig[kategori] ?? { color: "#6B7280", bg: "#F3F4F6" };
 
-  // Hitung scale & offset untuk resizeMode="cover"
-  let scale = 1,
-    offsetX = 0,
-    offsetY = 0;
-  if (bboxReady) {
-    const scaleX = imageLayout.width / naturalSize.width;
-    const scaleY = imageLayout.height / naturalSize.height;
-    // cover = ambil scale terbesar (gambar diperbesar mengisi container)
-    scale = Math.max(scaleX, scaleY);
-    // Offset: sisa ruang dibagi 2 (gambar dicentrasi)
-    offsetX = (imageLayout.width - naturalSize.width * scale) / 2;
-    offsetY = (imageLayout.height - naturalSize.height * scale) / 2;
-  }
+  // ── RENDER BOUNDING BOX ───────────────────────────────────────────
+  // controller: bbox = [x1, y1, x2, y2] dalam koordinat piksel asli gambar
+  const renderBoundingBoxes = () => {
+    if (!naturalSize || detections.length === 0) return null;
 
-  const diseaseMap: Record<
-    string,
-    {
-      name: string;
-      latinName: string;
-      status: string;
-      description: string;
-      actions: string[];
-    }
-  > = {
-    penggerek_batang: {
-      name: "Penggerek Batang",
-      latinName: "Scirpophaga incertulas",
-      status: "Bahaya",
-      description:
-        "Hama ini menyerang batang padi dan dapat menyebabkan tanaman mati atau gagal panen.",
-      actions: [
-        "Gunakan perangkap hama",
-        "Lakukan sanitasi lahan",
-        "Gunakan insektisida sesuai dosis",
-      ],
-    },
-    blast: {
-      name: "Blast",
-      latinName: "Pyricularia oryzae",
-      status: "Bahaya",
-      description:
-        "Penyakit blast menyerang daun padi dan menyebabkan bercak berbentuk belah ketupat.",
-      actions: [
-        "Gunakan varietas tahan blast",
-        "Kurangi pupuk nitrogen berlebih",
-        "Semprot fungisida bila diperlukan",
-      ],
-    },
-    blight: {
-      name: "Blight",
-      latinName: "Xanthomonas oryzae",
-      status: "Bahaya",
-      description:
-        "Blight menyebabkan daun menguning dan mengering dari ujung daun.",
-      actions: [
-        "Gunakan benih sehat",
-        "Perbaiki drainase sawah",
-        "Gunakan bakterisida",
-      ],
-    },
-    wereng_coklat: {
-      name: "Wereng Coklat",
-      latinName: "Nilaparvata lugens",
-      status: "Bahaya",
-      description:
-        "Wereng coklat menghisap cairan tanaman dan dapat menyebabkan puso.",
-      actions: [
-        "Kurangi penggunaan pestisida berlebihan",
-        "Gunakan musuh alami wereng",
-        "Gunakan insektisida sesuai anjuran",
-      ],
-    },
-    tungro: {
-      name: "Tungro",
-      latinName: "Rice Tungro Virus",
-      status: "Bahaya",
-      description: "Tungro menyebabkan tanaman kerdil dan daun menguning.",
-      actions: [
-        "Cabut tanaman terinfeksi",
-        "Gunakan varietas tahan tungro",
-        "Kendalikan vektor wereng hijau",
-      ],
-    },
-    tikus: {
-      name: "Tikus Sawah",
-      latinName: "Rattus argentiventer",
-      status: "Bahaya",
-      description:
-        "Tikus menyerang batang dan bulir padi sehingga menyebabkan gagal panen.",
-      actions: [
-        "Pasang perangkap tikus",
-        "Lakukan gropyokan",
-        "Jaga kebersihan area sawah",
-      ],
-    },
-  };
+    const scaleX = width / naturalSize.width;
+    const scaleY = IMAGE_HEIGHT / naturalSize.height;
+    const scale = Math.min(scaleX, scaleY);
+    const offsetX = (width - naturalSize.width * scale) / 2;
+    const offsetY = (IMAGE_HEIGHT - naturalSize.height * scale) / 2;
 
-  const detections = parsedResult?.detections || [];
-  const detection = detections[0];
-  const diseaseInfo = detection ? diseaseMap[detection.class] : null;
+    return detections.map((det: any, index: number) => {
+      if (!det.bbox || det.bbox.length < 4) return null;
+      const [x1, y1, x2, y2] = det.bbox;
 
-  const resultData = {
-    diseaseName: diseaseInfo?.name || "Tidak terdeteksi",
-    latinName: diseaseInfo?.latinName || "-",
-    accuracy: detection ? (detection.confidence * 100).toFixed(1) : 0,
-    status: diseaseInfo?.status || "Aman",
-    description:
-      diseaseInfo?.description ||
-      "Tidak ada penyakit atau hama yang terdeteksi.",
-    actions: diseaseInfo?.actions ?? ["Tanaman terlihat sehat"],
+      const left = x1 * scale + offsetX;
+      const top = y1 * scale + offsetY;
+      const bWidth = (x2 - x1) * scale;
+      const bHeight = (y2 - y1) * scale;
+
+      // Clamp agar tidak keluar batas gambar
+      const clampedLeft = Math.max(0, left);
+      const clampedTop = Math.max(0, top);
+      const clampedWidth = Math.min(bWidth, width - clampedLeft);
+      const clampedHeight = Math.min(bHeight, IMAGE_HEIGHT - clampedTop);
+
+      // Warna box sesuai status deteksi individual
+      const detSc = statusConfig[det.status ?? status] ?? statusConfig["Aman"];
+
+      return (
+        <View
+          key={index}
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: clampedLeft,
+            top: clampedTop,
+            width: clampedWidth,
+            height: clampedHeight,
+            borderWidth: 2.5,
+            borderColor: detSc.color,
+            borderRadius: 6,
+          }}
+        >
+          <View style={[styles.bboxLabel, { backgroundColor: detSc.color }]}>
+            <Text style={styles.bboxLabelText}>
+              {/* confidence dari controller sudah dalam persen */}
+              {det.name ?? det.class} ({Number(det.confidence).toFixed(1)}%)
+            </Text>
+          </View>
+        </View>
+      );
+    });
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Gambar + bbox — tidak scroll */}
-      <View
-        style={styles.imageContainer}
-        onLayout={(e) => {
-          const { width, height } = e.nativeEvent.layout;
-          setImageLayout({ width, height });
-        }}
-      >
+    <SafeAreaView style={styles.root} edges={["top", "bottom"]}>
+      {/* ── ZONA GAMBAR + BOUNDING BOX ────────────────────────────── */}
+      <View style={[styles.imageContainer, { height: IMAGE_HEIGHT }]}>
         <Image
-          source={{ uri: imageUri as string }}
-          style={styles.scannedImage}
-          resizeMode="cover"
+          source={{ uri: displayImageUri }}
+          style={styles.image}
+          resizeMode="contain"
           onLoad={(e) => {
-            const { width, height } = e.nativeEvent.source;
-            setNaturalSize({ width, height });
+            const { width: w, height: h } = e.nativeEvent.source;
+            setNaturalSize({ width: w, height: h });
           }}
         />
 
-        {bboxReady &&
-          detections.map((item: any, index: number) => {
-            const [x1, y1, x2, y2] = item.bbox;
-            const left = x1 * scale + offsetX;
-            const top = y1 * scale + offsetY;
-            const bWidth = (x2 - x1) * scale;
-            const bHeight = (y2 - y1) * scale;
-            const clampedLeft = Math.max(0, left);
-            const clampedTop = Math.max(0, top);
-            const clampedWidth = Math.min(
-              bWidth,
-              imageLayout.width - clampedLeft,
-            );
-            const clampedHeight = Math.min(
-              bHeight,
-              imageLayout.height - clampedTop,
-            );
+        {renderBoundingBoxes()}
 
-            return (
-              <View
-                key={index}
-                style={{
-                  position: "absolute",
-                  left: clampedLeft,
-                  top: clampedTop,
-                  width: clampedWidth,
-                  height: clampedHeight,
-                  borderWidth: 2.5,
-                  borderColor: "#22C55E",
-                  borderRadius: 6,
-                }}
-                pointerEvents="none"
-              >
-                <View style={styles.bboxLabel}>
-                  <Text style={styles.bboxLabelText}>
-                    {item.class} ({(item.confidence * 100).toFixed(1)}%)
-                  </Text>
-                </View>
-              </View>
-            );
-          })}
-
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={22} color="white" />
+        {/* Tombol back */}
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={22} color="white" />
         </TouchableOpacity>
 
+        {/* Badge akurasi */}
         <View style={styles.badgeAccuracy}>
-          <Text style={styles.accuracyText}>
-            Akurasi {resultData.accuracy}%
-          </Text>
+          <Text style={styles.badgeAccuracyText}>Akurasi {accuracy}%</Text>
         </View>
       </View>
 
-      {/* Card — flex: 1 mengisi sisa layar */}
-      <View style={styles.contentCard}>
-        {/* Konten scrollable */}
+      {/* ── CARD HASIL (dapat di-scroll) ──────────────────────────── */}
+      <View style={styles.card}>
         <ScrollView
           showsVerticalScrollIndicator={false}
-          bounces={false}
-          contentContainerStyle={{ paddingBottom: 16 }}
+          contentContainerStyle={styles.cardScroll}
         >
-          {/* Header */}
-          <View style={styles.headerResult}>
+          {/* Header diagnosa */}
+          <View style={styles.headerRow}>
             <View style={{ flex: 1, marginRight: 12 }}>
-              <Text style={styles.statusLabel}>{resultData.status}</Text>
-              <Text style={styles.diseaseName}>{resultData.diseaseName}</Text>
-              <Text style={styles.latinName}>{resultData.latinName}</Text>
+              <Text style={[styles.statusLabel, { color: sc.color }]}>
+                {status}
+              </Text>
+              <Text style={styles.diseaseName}>{diseaseName}</Text>
+              <Text style={styles.latinName}>{latinName}</Text>
             </View>
-            <View style={styles.iconWarning}>
-              <Ionicons name="alert-circle" size={36} color="#EF4444" />
+            <View
+              style={[
+                styles.iconBox,
+                { backgroundColor: sc.bg, borderColor: sc.border },
+              ]}
+            >
+              <Ionicons name={sc.iconName as any} size={34} color={sc.color} />
             </View>
+          </View>
+
+          {/* Badge kategori */}
+          <View style={[styles.kategoriBadge, { backgroundColor: kc.bg }]}>
+            <Text style={[styles.kategoriText, { color: kc.color }]}>
+              {kategori}
+            </Text>
           </View>
 
           <View style={styles.divider} />
 
-          <Text style={styles.sectionTitle}>Tentang Penyakit</Text>
-          <Text style={styles.descriptionText}>{resultData.description}</Text>
+          {/* Safety Warning — hanya tampil jika multi-kelas terdeteksi */}
+          {safetyWarning ? (
+            <View style={styles.warningBox}>
+              <Ionicons name="warning" size={18} color="#92400E" />
+              <Text style={styles.warningText}>{safetyWarning}</Text>
+            </View>
+          ) : null}
 
-          <Text style={styles.sectionTitle}>Tindakan yang Disarankan</Text>
-          {resultData.actions.map((action: string, index: number) => (
-            <View key={index} style={styles.actionItem}>
-              <Ionicons name="checkmark-circle" size={20} color="#16A34A" />
+          {/* Deskripsi */}
+          <Text style={styles.sectionTitle}>Tentang Patologi</Text>
+          <Text style={styles.descText}>{description}</Text>
+
+          {/* Tindakan */}
+          <Text style={styles.sectionTitle}>Tindakan Pengendalian</Text>
+          {actions.map((action: string, i: number) => (
+            <View key={i} style={styles.actionItem}>
+              <Ionicons
+                name="checkmark-circle"
+                size={18}
+                color="#16A34A"
+                style={{ marginTop: 2 }}
+              />
               <Text style={styles.actionText}>{action}</Text>
             </View>
           ))}
+
+          {/* Deteksi individual (jika multi-kelas) */}
+          {detections.length > 1 && (
+            <>
+              <Text style={[styles.sectionTitle, { marginTop: 20 }]}>
+                Semua Deteksi ({detections.length} kelas)
+              </Text>
+              {detections.map((det: any, i: number) => {
+                const detSc =
+                  statusConfig[det.status ?? "Waspada"] ?? statusConfig["Aman"];
+                return (
+                  <View key={i} style={styles.detectionItem}>
+                    <View
+                      style={[
+                        styles.detectionDot,
+                        { backgroundColor: detSc.color },
+                      ]}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.detectionName}>
+                        {det.name ?? det.class}
+                      </Text>
+                      <Text style={styles.detectionMeta}>
+                        {det.latin_name} · {Number(det.confidence).toFixed(1)}%
+                        keyakinan
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.detectionBadge,
+                        { backgroundColor: detSc.bg },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.detectionBadgeText,
+                          { color: detSc.color },
+                        ]}
+                      >
+                        {det.status}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </>
+          )}
         </ScrollView>
 
-        {/* Footer tombol — selalu di bawah, tidak ikut scroll */}
-        <View style={styles.footerButtons}>
+        {/* Footer tombol */}
+        <View style={styles.footer}>
           <TouchableOpacity
-            style={styles.btnChatExpert}
+            style={styles.btnRiwayat}
             onPress={() => router.push("/pages/scanAI/riwayat_scanAI")}
           >
-            <Ionicons name="chatbubbles" size={18} color="white" />
-            <Text style={styles.btnChatText}>Lihat Riwayat AI</Text>
+            <Ionicons name="time-outline" size={16} color="white" />
+            <Text style={styles.btnRiwayatText}>Riwayat Scan</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.btnHome}
-            onPress={() => router.replace("/pages/dashboard")}
+            style={styles.btnSelesai}
+            onPress={() => router.replace("/")}
           >
-            <Text style={styles.btnHomeText}>Selesai</Text>
+            <Text style={styles.btnSelesaiText}>Selesai</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -279,142 +313,223 @@ export default function AnalysisResult() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F9FAFB" },
+  root: { flex: 1, backgroundColor: "#000" },
 
+  /* ── Gambar ── */
   imageContainer: {
     width: "100%",
-    height: IMAGE_DISPLAY_HEIGHT,
-    position: "relative",
     backgroundColor: "#000",
+    position: "relative",
     overflow: "hidden",
   },
-  scannedImage: { width: "100%", height: "100%" },
-
-  bboxLabel: {
-    position: "absolute",
-    top: -1,
-    left: -1,
-    backgroundColor: "#22C55E",
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderBottomRightRadius: 6,
-    borderTopLeftRadius: 5,
-  },
-  bboxLabelText: { color: "white", fontSize: 10, fontWeight: "700" },
-
-  backButton: {
+  image: { width: "100%", height: "100%" },
+  backBtn: {
     position: "absolute",
     top: 16,
     left: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: "rgba(0,0,0,0.5)",
-    padding: 10,
-    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
   },
   badgeAccuracy: {
     position: "absolute",
-    bottom: 20,
+    bottom: 16,
     right: 16,
     backgroundColor: "#16A34A",
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
   },
-  accuracyText: { color: "white", fontWeight: "700", fontSize: 12 },
+  badgeAccuracyText: { color: "white", fontWeight: "700", fontSize: 12 },
 
-  // Card mengisi sisa layar setelah gambar
-  contentCard: {
-    flex: 1, // ← isi sisa layar
+  /* ── Bounding Box ── */
+  bboxLabel: {
+    position: "absolute",
+    top: -1,
+    left: -1,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderTopLeftRadius: 5,
+    borderBottomRightRadius: 6,
+  },
+  bboxLabelText: { color: "white", fontSize: 10, fontWeight: "700" },
+
+  /* ── Card ── */
+  card: {
+    flex: 1,
     backgroundColor: "white",
-    marginTop: -24,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    marginTop: -24,
+    overflow: "hidden",
+  },
+  cardScroll: {
+    paddingHorizontal: 22,
     paddingTop: 24,
-    paddingHorizontal: 24,
-    paddingBottom: 0, // footer yang handle padding bawah
-    elevation: 5,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
+    paddingBottom: 16,
   },
 
-  headerResult: {
+  /* ── Header Diagnosa ── */
+  headerRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: 10,
   },
   statusLabel: {
-    color: "#EF4444",
-    fontWeight: "900",
     fontSize: 11,
-    letterSpacing: 1.2,
+    fontWeight: "900",
+    letterSpacing: 1,
     textTransform: "uppercase",
     marginBottom: 4,
   },
-  diseaseName: { fontSize: 22, fontWeight: "bold", color: "#1F2937" },
+  diseaseName: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#1F2937",
+    lineHeight: 26,
+  },
   latinName: {
     fontSize: 13,
     fontStyle: "italic",
-    color: "#6B7280",
-    marginTop: 2,
+    color: "#9CA3AF",
+    marginTop: 3,
   },
-  iconWarning: { backgroundColor: "#FEE2E2", padding: 10, borderRadius: 14 },
+  iconBox: {
+    padding: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
 
-  divider: { height: 1, backgroundColor: "#F3F4F6", marginVertical: 18 },
+  /* ── Kategori Badge ── */
+  kategoriBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 20,
+    marginBottom: 16,
+  },
+  kategoriText: { fontSize: 11, fontWeight: "700" },
+
+  divider: { height: 1, backgroundColor: "#F3F4F6", marginBottom: 16 },
+
+  /* ── Safety Warning ── */
+  warningBox: {
+    flexDirection: "row",
+    gap: 10,
+    backgroundColor: "#FFFBEB",
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+    alignItems: "flex-start",
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 12,
+    color: "#92400E",
+    lineHeight: 18,
+    fontWeight: "600",
+  },
+
+  /* ── Konten ── */
   sectionTitle: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "700",
     color: "#374151",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
     marginBottom: 8,
-    marginTop: 8,
   },
-  descriptionText: {
-    fontSize: 14,
+  descText: {
+    fontSize: 13,
     color: "#4B5563",
-    lineHeight: 22,
-    marginBottom: 12,
+    lineHeight: 21,
+    marginBottom: 16,
   },
   actionItem: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    gap: 10,
     marginBottom: 10,
+    alignItems: "flex-start",
   },
   actionText: {
-    marginLeft: 10,
-    fontSize: 14,
-    color: "#374151",
     flex: 1,
+    fontSize: 13,
+    color: "#374151",
     lineHeight: 20,
   },
 
-  // Footer tombol fixed di bawah card
-  footerButtons: {
+  /* ── Deteksi Individual (multi-kelas) ── */
+  detectionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+  },
+  detectionDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    flexShrink: 0,
+  },
+  detectionName: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#1F2937",
+  },
+  detectionMeta: {
+    fontSize: 11,
+    color: "#9CA3AF",
+    fontStyle: "italic",
+    marginTop: 2,
+  },
+  detectionBadge: {
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 20,
+  },
+  detectionBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+  },
+
+  /* ── Footer ── */
+  footer: {
     flexDirection: "row",
     gap: 10,
-    paddingVertical: 16,
+    paddingHorizontal: 22,
+    paddingTop: 12,
     paddingBottom: 20,
     borderTopWidth: 1,
     borderTopColor: "#F3F4F6",
     backgroundColor: "white",
   },
-  btnChatExpert: {
-    flex: 1.5,
-    backgroundColor: "#16A34A",
+  btnRiwayat: {
+    flex: 1,
     flexDirection: "row",
+    backgroundColor: "#16A34A",
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 15,
+    gap: 6,
+    paddingVertical: 14,
     borderRadius: 14,
-    gap: 8,
   },
-  btnChatText: { color: "white", fontWeight: "700", fontSize: 14 },
-  btnHome: {
+  btnRiwayatText: { color: "white", fontWeight: "700", fontSize: 13 },
+  btnSelesai: {
     flex: 1,
     borderWidth: 1.5,
     borderColor: "#E5E7EB",
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 15,
+    paddingVertical: 14,
     borderRadius: 14,
   },
-  btnHomeText: { color: "#6B7280", fontWeight: "700", fontSize: 14 },
+  btnSelesaiText: { color: "#6B7280", fontWeight: "700", fontSize: 13 },
 });
