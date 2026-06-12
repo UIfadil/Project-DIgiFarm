@@ -50,19 +50,26 @@ export default function Login() {
     } catch (error: unknown) {
         const err = error as { message: string; response?: any; request?: any };
         console.log("=== FULL ERROR ===");
-
         console.log("MESSAGE:", err.message);
 
         if (err.response) {
           console.log("STATUS:", err.response.status);
           console.log("DATA:", err.response.data);
-        }
 
-        if (err.request) {
+          // ✅ Tampilkan pesan sesuai status
+          if (err.response.status === 401 || err.response.status === 422) {
+            Alert.alert("Login Gagal", "Email atau password salah!");
+          } else {
+            Alert.alert("Error", "Terjadi kesalahan pada server.");
+          }
+        } else if (err.request) {
           console.log("REQUEST:", err.request);
+          Alert.alert("Error", "Tidak dapat terhubung ke server. Periksa koneksi internet Anda.");
+        } else {
+          Alert.alert("Error", "Terjadi kesalahan tidak terduga.");
         }
-      }
-  }; // <--- Kurung kurawal fungsi handleLogin
+    }
+  };
 
   // Kurung kurawal berlebih yang tadi ada di sini sudah dihapus
 
