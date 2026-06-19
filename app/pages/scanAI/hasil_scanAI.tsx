@@ -302,7 +302,7 @@ export default function HasilScanAI() {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.btnSelesai}
-            onPress={() => router.replace("/")}
+            onPress={() => router.replace("/pages/dashboard")}
           >
             <Text style={styles.btnSelesaiText}>Selesai</Text>
           </TouchableOpacity>
