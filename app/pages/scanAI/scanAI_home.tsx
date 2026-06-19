@@ -56,7 +56,7 @@ export default function ScanAIHome() {
         name: "scan.jpg",
         type: "image/jpeg",
       } as any);
-      const response = await fetch("http://10.66.178.41:8000/api/predict", {
+      const response = await fetch("http://10.66.176.232:8000/api/predict", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
