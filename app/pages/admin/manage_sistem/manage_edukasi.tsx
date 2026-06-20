@@ -489,7 +489,7 @@ export default function ManageEdukasi() {
                     <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
                         <Ionicons name="arrow-back" size={20} color="#374151" />
                     </TouchableOpacity>
-                    <View style={{ flex: 1, marginLeft: 12 }}>
+                    <View style={{ flex: 1, marginLeft: 12, marginTop: 20 }}>
                         <Text style={styles.headerTitle}>Database Edukasi</Text>
                         <Text style={styles.headerSub}>Manajemen data edukasi hama, penyakit, pertanian dasar padi</Text>
                     </View>
@@ -797,7 +797,7 @@ export default function ManageEdukasi() {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F1F5F9' },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16, backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: '#E5E7EB', elevation: 3, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
-    backBtn: { padding: 8, backgroundColor: '#F3F4F6', borderRadius: 10 },
+    backBtn: { padding: 8, backgroundColor: '#F3F4F6', borderRadius: 10, marginTop: 10 },
     headerTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
     headerSub: { fontSize: 12, color: '#6B7280', marginTop: 1 },
     addBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#16A34A', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, elevation: 2 },

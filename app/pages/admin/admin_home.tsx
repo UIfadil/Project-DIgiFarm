@@ -14,19 +14,30 @@ import api from '../../services/api';
 
 export default function AdminHome() {
     const router = useRouter();
-    const [totalUser, setTotalUser] = useState('0');
-    const [loading, setLoading] = useState(true)
 
+    // ── STATE STATISTIK (data asli dari database) ──────────────
+    const [totalUser, setTotalUser] = useState<number | null>(null);
+    const [totalSoalKuis, setTotalSoalKuis] = useState<number | null>(null);
+    const [totalEdukasi, setTotalEdukasi] = useState<number | null>(null);
+    const [loadingStats, setLoadingStats] = useState(true);
+
+    // ── FETCH SEMUA STATISTIK SEKALIGUS (parallel, lebih cepat) ──
     const fetchDashboardStats = async () => {
+        setLoadingStats(true);
         try {
-            const response = await api.get('/admin/users');
-            // Karena /admin/users mengembalikan array user, kita ambil panjang array-nya
-            const count = response.data.length;
-            setTotalUser(count.toString());
+            const [resUser, resSoal, resEdukasi] = await Promise.all([
+                api.get('/admin/users'),
+                api.get('/admin/soal-kuis'),
+                api.get('/admin/edukasi'),
+            ]);
+            setTotalUser(resUser.data.length ?? 0);
+            setTotalSoalKuis(resSoal.data.length ?? 0);
+            setTotalEdukasi(resEdukasi.data.length ?? 0);
+
         } catch (error) {
-            console.error("Gagal mengambil statistik:", error);
+            console.error('Gagal mengambil statistik dashboard:', error);
         } finally {
-            setLoading(false);
+            setLoadingStats(false);
         }
     };
 
@@ -35,20 +46,18 @@ export default function AdminHome() {
     }, []);
 
     const handleLogout = () => {
-        // Di sini Anda bisa menghapus session/token jika ada
         router.replace('/pages/autentikasi/login');
     };
 
+    // ── JAM & TANGGAL REAL-TIME ─────────────────────────────────
     const [currentDateTime, setCurrentDateTime] = useState(new Date());
     useEffect(() => {
         const timer = setInterval(() => {
             setCurrentDateTime(new Date());
-        }, 1000); // Update setiap 1 detik
-
-    return () => clearInterval(timer); // Membersihkan interval saat komponen tidak dipakai
+        }, 1000);
+        return () => clearInterval(timer);
     }, []);
 
-    // Formatter untuk tanggal Indonesia
     const formattedDate = currentDateTime.toLocaleDateString('id-ID', {
         weekday: 'long',
         year: 'numeric',
@@ -56,20 +65,18 @@ export default function AdminHome() {
         day: 'numeric',
     });
 
-    // Formatter untuk jam (opsional jika ingin menampilkan waktu)
     const formattedTime = currentDateTime.toLocaleTimeString('id-ID', {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit'
     });
 
-  // Data Mockup Statistik
-  const stats = [
-        { label: 'Total User', value: totalUser, icon: 'people', color: '#3B82F6' },
-        { label: 'Total Penyakit', value: '84', icon: 'medkit-outline', color: '#10B981' },
-        { label: 'Total Hama', value: '12', icon: 'bug', color: '#EF4444' },
-        { label: 'Total Edukasi', value: '45', icon: 'book', color: '#F59E0B' },
-  ];
+    // ── DATA STATISTIK — sekarang dari database asli ────────────
+    const stats = [
+        { label: 'Total User',      value: totalUser,      icon: 'people',         color: '#3B82F6' },
+        { label: 'Total Soal Kuis', value: totalSoalKuis,  icon: 'reader-outline', color: '#EF4444' },
+        { label: 'Total Edukasi',   value: totalEdukasi,   icon: 'book',           color: '#F59E0B' },
+    ];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -78,23 +85,24 @@ export default function AdminHome() {
         {/* Welcome Section */}
         <View style={styles.welcomeSection}>
             <Text style={styles.helloText}>Halo, Admin Utama</Text>
-            {/* Menampilkan Hari, Tanggal, dan Jam secara Real-time */}
             <Text style={styles.dateText}>{formattedDate} • {formattedTime}</Text>
         </View>
 
-        {/* Statistik Grid */}
+        {/* Statistik Grid — 3 kartu data asli database */}
         <View style={styles.statsGrid}>
           {stats.map((item, index) => (
                 <View key={index} style={styles.statCard}>
                 <View style={[styles.iconCircle, { backgroundColor: item.color + '20' }]}>
                   <Ionicons name={item.icon as any} size={24} color={item.color} />
                 </View>
-                {/* Tampilkan Loading kecil jika data belum ada */}
-                {loading && item.label === 'Total User' ? (
+
+                {/* Loading kecil saat data belum sampai */}
+                {loadingStats ? (
                   <ActivityIndicator size="small" color={item.color} />
                 ) : (
-                  <Text style={styles.statValue}>{item.value}</Text>
+                  <Text style={styles.statValue}>{item.value ?? 0}</Text>
                 )}
+
                 <Text style={styles.statLabel}>{item.label}</Text>
               </View>
             ))}
@@ -108,7 +116,7 @@ export default function AdminHome() {
             title="Kelola Pengguna" 
             icon="people-circle" 
             color="#4B5563" 
-            onPress={() => router.push('/pages/admin/manage_sistem/manage_user')} // Jalur Route Anda
+            onPress={() => router.push('/pages/admin/manage_sistem/manage_user')}
           />
           
           <MenuButton 
@@ -126,7 +134,7 @@ export default function AdminHome() {
           />
         </View>
 
-        {/* Tambahkan Tombol Logout di bawah sini */}
+        {/* Tombol Logout */}
         <TouchableOpacity 
           style={styles.btnLogout} 
           onPress={handleLogout}
@@ -171,25 +179,25 @@ const MenuButton = ({ title, icon, color, onPress }: { title: string, icon: stri
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9FAFB' },
   scrollContent: { padding: 20 },
-  welcomeSection: { marginBottom: 25 },
+  welcomeSection: { marginBottom: 25, marginTop: 20 },
   helloText: { fontSize: 24, fontWeight: 'bold', color: '#111827' },
   dateText: { color: '#6B7280', fontSize: 14 },
   
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 20 },
+  // 3 kartu sejajar — dibagi rata
+  statsGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, gap: 10 },
   statCard: { 
     backgroundColor: 'white', 
-    width: '48%', 
+    flex: 1,
     padding: 15, 
     borderRadius: 20, 
-    marginBottom: 15,
     elevation: 2,
     shadowColor: '#000',
     shadowOpacity: 0.05,
     shadowRadius: 10,
   },
-  iconCircle: { width: 45, height: 45, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
-  statValue: { fontSize: 20, fontWeight: 'bold', color: '#111827' },
-  statLabel: { fontSize: 12, color: '#6B7280' },
+  iconCircle: { width: 42, height: 42, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+  statValue: { fontSize: 19, fontWeight: 'bold', color: '#111827' },
+  statLabel: { fontSize: 11, color: '#6B7280', marginTop: 2 },
 
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#1F2937', marginBottom: 15, marginTop: 10 },
   

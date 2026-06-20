@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
-    Image // ✅ tambah
+    Image 
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,7 +19,6 @@ interface ProfilExp {
     exp_level_next: number;
 }
 
-// ✅ tambah interface
 interface UserProfil {
     foto_profil_url: string | null;
 }
@@ -38,7 +37,7 @@ export default function LobbyGameKuis() {
     const router = useRouter();
     const [profil, setProfil] = useState<ProfilExp | null>(null);
     const [loading, setLoading] = useState(true);
-    const [userProfil, setUserProfil] = useState<UserProfil | null>(null); // ✅ tambah
+    const [userProfil, setUserProfil] = useState<UserProfil | null>(null);
 
     const fetchProfil = async () => {
         try {
@@ -51,7 +50,7 @@ export default function LobbyGameKuis() {
         }
     };
 
-    // ✅ tambah fetch foto profil
+    // tambah fetch foto profil
     const fetchUserProfil = async () => {
         try {
             const res = await api.get('/profil');

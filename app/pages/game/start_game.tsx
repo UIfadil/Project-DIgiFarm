@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, SafeAreaView,
     Modal, ActivityIndicator, Alert, Image, ScrollView
@@ -20,6 +20,7 @@ interface SoalKuis {
 }
 
 const WAKTU_PER_SOAL = 30; // 30 detik per soal
+const DELAY_AUTO_LANJUT = 1500; // jeda sebelum auto-lanjut saat waktu habis (ms)
 
 const LABEL_KATEGORI: Record<string, string> = {
     semua:            'Semua Kategori',
@@ -39,11 +40,17 @@ export default function GamePlayKuis() {
     const [timeLeft, setTimeLeft]           = useState(WAKTU_PER_SOAL);
     const [selectedAnswer, setSelectedAnswer] = useState<'a' | 'b' | 'c' | 'd' | null>(null);
     const [answered, setAnswered]           = useState(false); // sudah dijawab/timeout
+    const [isTimeout, setIsTimeout]         = useState(false); // tandai khusus saat waktu habis
     const [jumlahBenar, setJumlahBenar]     = useState(0);
     const [jumlahSalah, setJumlahSalah]     = useState(0);
     const [showResult, setShowResult]       = useState(false);
     const [savingResult, setSavingResult]   = useState(false);
     const [expDidapat, setExpDidapat]       = useState(0);
+
+    // Guard agar handleNext tidak terpanggil dobel
+    // (mis. user tap "Next" tepat saat auto-lanjut timeout juga jalan)
+    const advancingRef = useRef(false);
+    const autoNextTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const totalSoal   = 10;
     const soal        = soalList[currentIndex];
@@ -70,7 +77,6 @@ export default function GamePlayKuis() {
     useEffect(() => {
         if (loading || answered || showResult) return;
         if (timeLeft === 0) {
-            // Waktu habis = salah
             handleTimeOut();
             return;
         }
@@ -78,15 +84,31 @@ export default function GamePlayKuis() {
         return () => clearInterval(timer);
     }, [timeLeft, loading, answered, showResult]);
 
+    // ─── Bersihkan timer auto-lanjut saat komponen unmount ───
+    useEffect(() => {
+        return () => {
+            if (autoNextTimer.current) clearTimeout(autoNextTimer.current);
+        };
+    }, []);
+
+    // Waktu habis → tandai timeout, lalu OTOMATIS lanjut
+    // tanpa perlu user menekan tombol apapun
     const handleTimeOut = () => {
         setAnswered(true);
+        setIsTimeout(true);
         setJumlahSalah(s => s + 1);
+
+        // Beri jeda sebentar agar user sadar waktu habis, lalu auto-lanjut
+        autoNextTimer.current = setTimeout(() => {
+            handleNext();
+        }, DELAY_AUTO_LANJUT);
     };
 
     const handlePilihJawaban = (jawaban: 'a' | 'b' | 'c' | 'd') => {
         if (answered) return;
         setSelectedAnswer(jawaban);
         setAnswered(true);
+        setIsTimeout(false);
         if (jawaban === soal.jawaban_benar) {
             setJumlahBenar(b => b + 1);
         } else {
@@ -95,6 +117,10 @@ export default function GamePlayKuis() {
     };
 
     const handleNext = async () => {
+        // Cegah handleNext terpanggil dua kali (tap manual + auto timeout bersamaan)
+        if (advancingRef.current) return;
+        advancingRef.current = true;
+
         if (currentIndex + 1 >= totalSoal) {
             // Soal terakhir — simpan hasil
             await simpanHasil();
@@ -102,26 +128,25 @@ export default function GamePlayKuis() {
             setCurrentIndex(i => i + 1);
             setSelectedAnswer(null);
             setAnswered(false);
+            setIsTimeout(false);
             setTimeLeft(WAKTU_PER_SOAL);
+            advancingRef.current = false; // reset untuk soal berikutnya
         }
     };
 
+    // secara real-time di handlePilihJawaban / handleTimeOut.
+    // Jadi di sini cukup kirim apa adanya, TIDAK perlu ditambah +1 lagi
+    // (sebelumnya double-counting soal terakhir)
     const simpanHasil = async () => {
         try {
             setSavingResult(true);
-            const benar = selectedAnswer === soal?.jawaban_benar
-                ? jumlahBenar + 1 : jumlahBenar;
-            const salah = selectedAnswer !== soal?.jawaban_benar
-                ? jumlahSalah + 1 : jumlahSalah;
 
             const res = await api.post('/kuis/selesai', {
                 kategori,
-                jumlah_benar: benar,
-                jumlah_salah: salah,
+                jumlah_benar: jumlahBenar,
+                jumlah_salah: jumlahSalah,
             });
             setExpDidapat(res.data.exp_didapat);
-            setJumlahBenar(benar);
-            setJumlahSalah(salah);
             setShowResult(true);
         } catch {
             Alert.alert("Gagal", "Gagal menyimpan hasil kuis");
@@ -135,13 +160,16 @@ export default function GamePlayKuis() {
 
     const getSkor = () => Math.round((jumlahBenar / totalSoal) * 100);
 
-    // Warna tombol jawaban
+    // Hanya menyoroti pilihan USER (benar = hijau, salah = merah).
+    // Jawaban benar TIDAK dibongkar/disorot jika user salah atau timeout.
     const getAnswerStyle = (key: 'a' | 'b' | 'c' | 'd') => {
         if (!answered) {
             return selectedAnswer === key ? styles.answerButtonSelected : styles.answerButton;
         }
-        if (key === soal?.jawaban_benar) return styles.answerButtonBenar;
-        if (key === selectedAnswer) return styles.answerButtonSalah;
+        if (key === selectedAnswer) {
+            return key === soal?.jawaban_benar ? styles.answerButtonBenar : styles.answerButtonSalah;
+        }
+        // Tombol lain (termasuk jawaban benar yang tidak dipilih) tetap netral
         return styles.answerButton;
     };
 
@@ -149,8 +177,9 @@ export default function GamePlayKuis() {
         if (!answered) {
             return selectedAnswer === key ? styles.answerIndexSelected : styles.answerIndex;
         }
-        if (key === soal?.jawaban_benar) return styles.answerIndexBenar;
-        if (key === selectedAnswer) return styles.answerIndexSalah;
+        if (key === selectedAnswer) {
+            return key === soal?.jawaban_benar ? styles.answerIndexBenar : styles.answerIndexSalah;
+        }
         return styles.answerIndex;
     };
 
@@ -199,7 +228,6 @@ export default function GamePlayKuis() {
                 <View style={styles.questionCard}>
                     <Text style={styles.questionCategory}>{LABEL_KATEGORI[soal.kategori]?.toUpperCase()}</Text>
 
-                    {/* Gambar soal jika ada */}
                     {soal.gambar ? (
                         <Image
                             source={{ uri: getImageUri(soal.gambar) }}
@@ -210,6 +238,14 @@ export default function GamePlayKuis() {
 
                     <Text style={styles.questionText}>{soal.pertanyaan}</Text>
                 </View>
+
+                {/* Notifikasi waktu habis */}
+                {isTimeout && (
+                    <View style={styles.timeoutBanner}>
+                        <Ionicons name="time-outline" size={16} color="#92400E" />
+                        <Text style={styles.timeoutBannerText}>Waktu habis! Melanjutkan ke soal berikutnya...</Text>
+                    </View>
+                )}
 
                 {/* OPSI JAWABAN */}
                 <View style={styles.answersContainer}>
@@ -223,7 +259,7 @@ export default function GamePlayKuis() {
                             <View style={getAnswerIndexStyle(key)}>
                                 <Text style={[
                                     styles.answerIndexText,
-                                    (answered && key === soal.jawaban_benar) && styles.answerIndexTextBenar,
+                                    (answered && key === selectedAnswer && key === soal.jawaban_benar) && styles.answerIndexTextBenar,
                                     (answered && key === selectedAnswer && key !== soal.jawaban_benar) && styles.answerIndexTextSalah,
                                     (!answered && selectedAnswer === key) && styles.answerIndexTextSelected,
                                 ]}>
@@ -232,12 +268,14 @@ export default function GamePlayKuis() {
                             </View>
                             <Text style={[
                                 styles.answerText,
-                                (answered && key === soal.jawaban_benar) && styles.answerTextBenar,
+                                (answered && key === selectedAnswer && key === soal.jawaban_benar) && styles.answerTextBenar,
                                 (answered && key === selectedAnswer && key !== soal.jawaban_benar) && styles.answerTextSalah,
                             ]}>
                                 {opsiMap[key]}
                             </Text>
-                            {answered && key === soal.jawaban_benar && (
+
+                            {/* Icon hanya muncul pada jawaban yang DIPILIH user, tidak membongkar jawaban benar */}
+                            {answered && key === selectedAnswer && key === soal.jawaban_benar && (
                                 <Ionicons name="checkmark-circle" size={20} color="#16A34A" />
                             )}
                             {answered && key === selectedAnswer && key !== soal.jawaban_benar && (
@@ -255,6 +293,12 @@ export default function GamePlayKuis() {
                     <View style={styles.waitingHint}>
                         <Ionicons name="time-outline" size={16} color="#9CA3AF" />
                         <Text style={styles.waitingHintText}>Pilih jawaban di atas</Text>
+                    </View>
+                ) : isTimeout ? (
+                    // Saat timeout, tombol next disembunyikan karena auto-lanjut berjalan sendiri
+                    <View style={styles.waitingHint}>
+                        <ActivityIndicator size="small" color="#16A34A" />
+                        <Text style={styles.waitingHintText}>Melanjutkan otomatis...</Text>
                     </View>
                 ) : (
                     <TouchableOpacity
@@ -292,7 +336,6 @@ export default function GamePlayKuis() {
                             <Text style={styles.xpGain}>+{expDidapat} EXP</Text>
                         </View>
 
-                        {/* Tombol kembali ke halaman hasil */}
                         <TouchableOpacity
                             style={styles.homeButton}
                             onPress={() => {
@@ -318,9 +361,11 @@ export default function GamePlayKuis() {
                                 setCurrentIndex(0);
                                 setSelectedAnswer(null);
                                 setAnswered(false);
+                                setIsTimeout(false);
                                 setTimeLeft(WAKTU_PER_SOAL);
                                 setJumlahBenar(0);
                                 setJumlahSalah(0);
+                                advancingRef.current = false; // reset guard saat ulangi kuis
                             }}
                         >
                             <Text style={styles.retryButtonText}>Ulangi 🔄</Text>
@@ -336,7 +381,7 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F0FDF4' },
     scrollContent: { paddingBottom: 120 },
 
-    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10, justifyContent: 'space-between' },
+    header: { flexDirection: 'row', alignItems: 'center', marginTop: 20,paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10, justifyContent: 'space-between' },
     exitButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FEE2E2', justifyContent: 'center', alignItems: 'center' },
     progressContainer: { flex: 1, marginHorizontal: 12, alignItems: 'center' },
     progressBarBackground: { height: 8, width: '100%', backgroundColor: '#DCFCE7', borderRadius: 4, overflow: 'hidden' },
@@ -351,6 +396,10 @@ const styles = StyleSheet.create({
     questionCategory: { textAlign: 'center', color: '#16A34A', fontWeight: '800', fontSize: 11, marginBottom: 10, letterSpacing: 1 },
     soalImage: { width: '100%', height: 160, borderRadius: 12, marginBottom: 14, backgroundColor: '#F3F4F6' },
     questionText: { fontSize: 17, fontWeight: 'bold', color: '#374151', textAlign: 'center', lineHeight: 26 },
+
+    // Banner notifikasi waktu habis
+    timeoutBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#FDE68A', borderRadius: 14, padding: 12, marginHorizontal: 20, marginBottom: 14 },
+    timeoutBannerText: { color: '#92400E', fontSize: 12.5, fontWeight: '600', flex: 1 },
 
     answersContainer: { paddingHorizontal: 20, gap: 10 },
     answerButton: { backgroundColor: 'white', flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 20, borderWidth: 2, borderColor: '#E5E7EB' },
@@ -371,9 +420,9 @@ const styles = StyleSheet.create({
     answerTextSalah: { color: '#991B1B' },
 
     footer: { position: 'absolute', bottom: 0, width: '100%', padding: 20, backgroundColor: 'white', borderTopLeftRadius: 30, borderTopRightRadius: 30, elevation: 20 },
-    waitingHint: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+    waitingHint: { flexDirection: 'row', alignItems: 'center', marginBottom : 20,justifyContent: 'center', gap: 6 },
     waitingHintText: { color: '#9CA3AF', fontSize: 14 },
-    nextButton: { backgroundColor: '#16A34A', padding: 18, borderRadius: 20, alignItems: 'center' },
+    nextButton: { backgroundColor: '#16A34A', marginBottom: 30, padding: 18, borderRadius: 20, alignItems: 'center' },
     nextButtonText: { color: 'white', fontSize: 16, fontWeight: '800' },
 
     // Modal hasil

@@ -317,7 +317,7 @@ export default function ManageSoalKuis() {
                         <Ionicons name="arrow-back" size={20} color="#374151" />
                     </TouchableOpacity>
                     <View style={{ flex: 1, marginLeft: 12 }}>
-                        <Text style={styles.headerTitle}>Bank Soal Kuis</Text>
+                        <Text style={styles.headerTitle}> Manage Soal Kuis</Text>
                         <Text style={styles.headerSub}>Manajemen soal pilihan ganda</Text>
                     </View>
                     <TouchableOpacity onPress={openAdd} style={styles.addBtn}>
@@ -563,10 +563,10 @@ export default function ManageSoalKuis() {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F1F5F9' },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16, backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: '#E5E7EB', elevation: 3, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
-    backBtn: { padding: 8, backgroundColor: '#F3F4F6', borderRadius: 10 },
-    headerTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
+    backBtn: { padding: 8, backgroundColor: '#F3F4F6', borderRadius: 10,  marginTop: 20 },
+    headerTitle: { fontSize: 16, fontWeight: '700', color: '#111827', marginTop: 20 },
     headerSub: { fontSize: 12, color: '#6B7280', marginTop: 1 },
-    addBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#6366F1', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, elevation: 2 },
+    addBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#6366F1', marginTop: 20, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, elevation: 2 },
     addBtnText: { color: 'white', fontWeight: '700', fontSize: 13 },
     summaryRow: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 14, gap: 8 },
     summaryCard: { flex: 1, backgroundColor: 'white', borderRadius: 12, padding: 10, borderLeftWidth: 4, elevation: 2, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, shadowOffset: { width: 0, height: 1 } },

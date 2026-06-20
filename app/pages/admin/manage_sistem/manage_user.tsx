@@ -315,8 +315,8 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1, borderBottomColor: '#E5E7EB',
         elevation: 3, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4, shadowOffset: { width: 0, height: 2 },
     },
-    backBtn: { padding: 8, backgroundColor: '#F3F4F6', borderRadius: 10 },
-    headerTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
+    backBtn: { padding: 8, backgroundColor: '#F3F4F6', borderRadius: 10, marginTop: 23 },
+    headerTitle: { fontSize: 16, fontWeight: '700', color: '#111827', marginTop: 30 },
     headerSub: { fontSize: 12, color: '#6B7280', marginTop: 1 },
 
     // Summary Cards
